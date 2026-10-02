@@ -138,7 +138,11 @@ export default function IvaModule({ withDesktopSidebar = false, initialRuc = nul
       setConfig(normalizeConfig(data.config));
       setLoaded({ periodo: per, error: '' });
     }).catch((error) => {
-      setLoaded({ periodo: per, error: error.message || 'No se pudo conectar con el servidor.' });
+      // El Web App publicado todavía es la versión sin el módulo de IVA.
+      const message = error.code === 'UNKNOWN_ACTION'
+        ? 'El backend todavía no tiene el módulo de IVA. Copiá el Apps Script actualizado y publicá una nueva versión del Web App (ver README).'
+        : error.message || 'No se pudo conectar con el servidor.';
+      setLoaded({ periodo: per, error: message });
     }).finally(() => {
       setRefreshing(false);
     });
