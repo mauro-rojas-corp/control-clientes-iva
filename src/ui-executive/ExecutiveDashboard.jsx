@@ -44,11 +44,19 @@ const QUICK_FILTERS = [
   { id: 'unassigned', label: 'Sin asignar' },
 ];
 
+// Mismo criterio que isRowPresentado (ClientsContext):
+//  - planilla "sólo sello" (la columna de estado ES "Archivado por:"): un
+//    nombre cuenta como archivado; vacío o el "NO" literal, no.
+//  - hay columna SI/NO propia: manda sólo ella. Antes era "SI o sello
+//    cargado", y al desarchivar el sello viejo dejaba la fila archivada.
+//  - sin columna de estado: sólo el sello.
 function isArchived(row, archivedColumn, archivedByColumn) {
-  const hasArchivedValue = archivedColumn && isAffirmativeValue(row[archivedColumn]);
-  const hasArchivedStamp =
-    archivedByColumn && Boolean(String(row[archivedByColumn] || '').trim());
-  return Boolean(hasArchivedValue || hasArchivedStamp);
+  if (archivedColumn && archivedColumn === archivedByColumn) {
+    const text = String(row[archivedColumn] || '').trim();
+    return Boolean(text) && !/^no?$/i.test(text);
+  }
+  if (archivedColumn) return isAffirmativeValue(row[archivedColumn]);
+  return Boolean(archivedByColumn && String(row[archivedByColumn] || '').trim());
 }
 
 function getDueNumber(row, dueColumn) {
@@ -642,10 +650,14 @@ const ExecutiveDashboard = forwardRef(function ExecutiveDashboard(
     (row, column, stampColumn, isActive) => {
       if (readOnly || !column) return;
 
-      const nextValue = isActive ? 'NO' : 'SI';
-      const updates = { [column]: nextValue };
-      if (stampColumn && stampColumn !== column) {
-        updates[stampColumn] = isActive ? '' : user;
+      let updates;
+      if (stampColumn && stampColumn === column) {
+        // Planilla "sólo sello" ("Presentado por:" / "Archivado por:"): la
+        // marca es el nombre de quien lo hizo; desmarcar la deja vacía.
+        updates = { [column]: isActive ? '' : user };
+      } else {
+        updates = { [column]: isActive ? 'NO' : 'SI' };
+        if (stampColumn) updates[stampColumn] = isActive ? '' : user;
       }
 
       setActionError('');

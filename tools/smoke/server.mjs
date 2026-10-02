@@ -7,7 +7,7 @@
 //   node tools/smoke/server.mjs            # escucha en :8787
 //   VITE_BACKEND_URL=http://localhost:8787 npm run dev
 //
-// Variables: PORT (8787), ROWS (300), LATENCY_MS (250).
+// Variables: PORT (8787), ROWS (300), LATENCY_MS (250), SOLO_SELLO (0/1).
 import http from 'node:http';
 
 const PORT = Number(process.env.PORT || 8787);
@@ -29,10 +29,13 @@ const userRecords = new Map(
   ])
 );
 
+// SOLO_SELLO=1 simula una planilla sin columnas SI/NO: el estado vive sólo
+// en "Presentado por:" / "Archivado por:" (nombre de quien lo hizo).
+const SOLO_SELLO = process.env.SOLO_SELLO === '1';
 const HEADERS = [
   'Razón Social', 'R.U.C.', 'Clave MH', 'Vencimiento', 'Encargado',
   'Presentado', 'Presentado por:', 'Archivado', 'Archivado por:', 'Observaciones',
-];
+].filter((h) => !SOLO_SELLO || (h !== 'Presentado' && h !== 'Archivado'));
 const NAMES = ['Comercial', 'Ferretería', 'Distribuidora', 'Estudio', 'Panadería', 'Transportes', 'Farmacia', 'Consultora'];
 const SURNAMES = ['Sur', 'del Este', 'Ñandutí', 'Guaraní', 'Central', 'Paraná', 'Chaco', 'Ypacaraí'];
 
@@ -53,6 +56,10 @@ function makeRows(count) {
       'Archivado por:': i % 11 === 0 ? 'Jorge' : '',
       'Observaciones': i % 6 === 0 ? 'Cliente con IVA mensual' : '',
     });
+    if (SOLO_SELLO) {
+      delete rows[i]['Presentado'];
+      delete rows[i]['Archivado'];
+    }
   }
   return rows;
 }
