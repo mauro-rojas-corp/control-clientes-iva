@@ -57,6 +57,23 @@ solo lectura.
   Para usar una planilla aparte, poné su ID en la Script Property
   `IVA_SPREADSHEET_ID`.
 
+### Instalar el módulo de IVA en Apps Script
+
+El módulo vive en su propio archivo, así que no hace falta reemplazar el
+`Code.gs` que ya está publicado:
+
+1. En el proyecto de Apps Script: **+ → Secuencia de comandos**, llamarla
+   `Iva` y pegar el contenido de `AppsScript-Iva.gs`.
+2. En `doPost` del `Code.gs`, justo antes de
+   `return errorResponse('Acción desconocida: ' + action, 'UNKNOWN_ACTION');`,
+   agregar:
+   ```js
+   const ivaResponse = handleIvaAction(action, body, sessionUser, sessionRole);
+   if (ivaResponse) return ivaResponse;
+   ```
+3. **Implementar → Administrar implementaciones → editar → Nueva versión**
+   (así la URL del Web App no cambia).
+
 ### Migrar los datos de la app de Netlify
 
 Si ya había liquidaciones cargadas en `vencimientos-iva`, se traen una sola
@@ -123,6 +140,7 @@ src/
   iva/                    Vencimientos IVA (cálculo, editor, ficha, PDF)
   components/             modales / utilidades de UI
 AppsScript-Code-auth-PROPUESTA.gs   backend de referencia (Apps Script)
+AppsScript-Iva.gs                   módulo de IVA del backend (archivo aparte)
 ```
 
 La interfaz que se monta es la ejecutiva: `src/main.jsx` renderiza

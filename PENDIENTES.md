@@ -35,8 +35,9 @@ Estado de referencia: autenticación individual y configuración inicial de PIN 
 
 ## Unificación con Vencimientos IVA
 
-- [ ] Copiar el `AppsScript-Code-auth-PROPUESTA.gs` actualizado (acciones
-  `iva*`) y publicar una nueva versión del Web App.
+- [ ] Agregar `AppsScript-Iva.gs` como archivo nuevo del proyecto de Apps
+  Script, sumar las 2 líneas de `handleIvaAction` en `doPost` y publicar una
+  nueva versión del Web App (ver README, "Instalar el módulo de IVA").
 - [ ] `npm install` (se agregaron `jspdf` y `html2canvas`, que antes venían
   por CDN) y recompilar frontend y APK.
 - [ ] Confirmar que la planilla mensual tiene columna de RUC y que el
