@@ -3,7 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { api } from '../api';
 import {
   ESTADOS,
-  IVA_DEFAULT,
+  IVA_DEFAULT_NUEVO,
   LISTS,
   LIST_BY,
   VENTAS_KEYS,
@@ -40,7 +40,7 @@ function readLibroPreference() {
   }
 }
 
-function emptyRow(iva = IVA_DEFAULT, f = '') {
+function emptyRow(iva = IVA_DEFAULT_NUEVO, f = '') {
   return { m: 0, iva, f, n: '', t: '' };
 }
 
@@ -168,7 +168,7 @@ export default function IvaEditor({
     const rows = draft[k];
     const last = rows[rows.length - 1];
     if (last && !last.m) { setFocusTarget(k + ':' + (rows.length - 1)); return; }
-    update((d) => ({ ...d, [k]: [...d[k], emptyRow(last ? last.iva : IVA_DEFAULT, libroMode && last && last.f ? last.f : '')] }));
+    update((d) => ({ ...d, [k]: [...d[k], emptyRow(last ? last.iva : IVA_DEFAULT_NUEVO, libroMode && last && last.f ? last.f : '')] }));
     setFocusTarget(k + ':' + rows.length);
   };
   const removeRow = (k, i) => update((d) => {
@@ -275,8 +275,10 @@ export default function IvaEditor({
             />
             {d.r ? (
               <select className="ivasel" value={x.iva ? '1' : '0'} onChange={(e) => setItem(key, i, { iva: e.target.value === '1' })} aria-label={`IVA del monto ${i + 1}`}>
-                <option value="1">IVA incluido</option>
-                <option value="0">Sin IVA</option>
+                {/* "IVA incluido" suma el IVA encima del monto (iva: false);
+                    "Sin IVA" lo extrae del monto (iva: true). Ver ivaCore. */}
+                <option value="0">IVA incluido</option>
+                <option value="1">Sin IVA</option>
               </select>
             ) : <span className="sub exen">Exento</span>}
             {rows.length > 1 && (
@@ -391,10 +393,6 @@ export default function IvaEditor({
           {['ncv10', 'ncv5'].map(listBlock)}
           <div className="iva-totrow"><span>Total compras gravadas (base): <b>{casValue('comprasBase')}</b></span><span>Total IVA crédito · cas. 43: <b>{casValue(45)}</b></span></div>
 
-          <div className="iva-rubro">Rubro 6 – Compras exoneradas / no alcanzadas (informativo, sin crédito fiscal)</div>
-          {listBlock('cex')}
-          <div className="iva-totrow"><span>(-) NC recibidas por compras exoneradas (cas. 17, del Rubro 1): <b>{casValue('nccex')}</b></span><span>Total compras exoneradas (neto): <b>{casValue('nr')}</b></span></div>
-
           <div className="iva-rubro">Rubro 4 – Determinación del impuesto o del saldo técnico</div>
           <div className="iva-tblw"><table className="iva-tbl"><tbody>
             {tr(44, 'a) IVA Débito (suma casillas 21 y 24 del Rubro 1)', 44)}
@@ -421,6 +419,10 @@ export default function IvaEditor({
             {tr(58, 'h) SALDO A PAGAR AL FISCO (57 – 53, si 57 es mayor)', 58, 'strong')}
             {tr(54, 'i) Saldo de retenciones trasladable a la casilla 51 del mes siguiente (53 – 57, si 53 es mayor)', 54)}
           </tbody></table></div>
+
+          <div className="iva-rubro">Rubro 6 – Compras exoneradas / no alcanzadas (informativo, sin crédito fiscal)</div>
+          {listBlock('cex')}
+          <div className="iva-totrow"><span>(-) NC recibidas por compras exoneradas (cas. 17, del Rubro 1): <b>{casValue('nccex')}</b></span><span>Total compras exoneradas (neto): <b>{casValue('nr')}</b></span></div>
 
           <div className="iva-rubro">Cálculo por mora – Art. 171 Ley 125/91 (solo si la fecha de pago es posterior al vencimiento)</div>
           <div className="iva-tblw"><table className="iva-tbl"><tbody>

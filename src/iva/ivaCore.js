@@ -11,8 +11,14 @@ export const DEFAULT_FERIADOS = ['2026-01-01', '2026-03-01', '2026-04-02', '2026
   '2027-01-01', '2027-03-01', '2027-03-25', '2027-03-26', '2027-05-01', '2027-05-14', '2027-05-15', '2027-06-12', '2027-08-15', '2027-09-29', '2027-12-08', '2027-12-25'];
 export const DEFAULT_MORA = { interes: 0.0005, contrav: 50000 };
 export const DEFAULT_FIRMA = 'MJ Estudio Contable';
-// Por defecto los montos se cargan con IVA incluido (total de factura).
+// Cada monto guarda `iva`: true = el IVA se extrae del monto (base = m / 1,1);
+// false = el IVA se suma encima (base = m). Los montos viejos guardados como
+// número suelto se interpretan con IVA_DEFAULT (extraído), como siempre.
 export const IVA_DEFAULT = true;
+// En el editor la opción "IVA incluido" suma el IVA encima del monto y "Sin
+// IVA" lo extrae (pedido de la oficina). Cada monto nuevo arranca en "IVA
+// incluido", o sea iva: false.
+export const IVA_DEFAULT_NUEVO = false;
 export const ESTADOS = { pend: 'Pendiente', env: 'Enviado al cliente', pres: 'Presentado' };
 
 // Categorías con montos múltiples. r = tasa de IVA (0 = exento). Según Formulario 120 v4 (DNIT).
@@ -176,7 +182,7 @@ export function calc(l, ctx) {
 
 // Deja cada lista con al menos una fila vacía para editar.
 export function normDraft(d) {
-  LISTS.forEach((L) => { let rows = getItems(d, L.k); if (!rows.length) rows = [{ m: 0, iva: IVA_DEFAULT, f: '', n: '', t: '' }]; d[L.k] = rows; });
+  LISTS.forEach((L) => { let rows = getItems(d, L.k); if (!rows.length) rows = [{ m: 0, iva: IVA_DEFAULT_NUEVO, f: '', n: '', t: '' }]; d[L.k] = rows; });
   return d;
 }
 // Quita filas vacías y campos sin uso antes de guardar.
