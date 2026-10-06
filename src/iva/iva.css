@@ -473,3 +473,4 @@
 
 .iva-conteo { margin: 0 0 8px; }
 .iva-ref { margin: 6px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--rx-amber-soft); font-size: var(--rx-fs-xs); }
+.iva-avisos { margin: 10px 0 0; padding-left: 18px; font-size: var(--rx-fs-2xs); color: var(--rx-muted); display: grid; gap: 4px; }

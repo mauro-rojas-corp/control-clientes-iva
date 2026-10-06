@@ -1,58 +1,55 @@
-// Formulario 120 (IVA) de Marangatu: correspondencia de casillas y las dos
-// funciones que el popup inyecta en la página (en todos sus frames).
+// Formulario 120 (IVA) de Marangatu y las funciones que la extensión inyecta
+// en sus páginas.
 //
-// MAPA_CASILLAS: casilla -> selector CSS del campo en Marangatu. Se completa
-// a partir del listado que genera "Relevar formulario". Mientras una casilla
-// no esté en el mapa, se intenta reconocerla por id/name/data-casilla con
-// nombres del tipo "casilla10", "cas_10" o "c10"; si no aparece, se informa
-// como "no encontrada" y no se escribe nada en otro campo.
-// eslint-disable-next-line no-unused-vars -- lo usa popup.js
-const MAPA_CASILLAS = {
-  // '10': '#ejemplo_casilla_10',
-};
+// Relevado del formulario real: cada casilla es un <input id="C{número}">
+// (C10, C22, C150…). Marangatu calcula el IVA de cada fila y los totales con
+// su función Calcular() al cambiar un campo, así que se escriben sólo las
+// casillas de ingreso (monto imponible) y se dispara su evento "change".
+//
+// MAPA_CASILLAS: excepciones casilla -> selector CSS, por si algún campo no
+// sigue el patrón #C{número}. Vacío mientras el formulario no cambie.
+// eslint-disable-next-line no-unused-vars -- lo usan popup.js y background.js
+const MAPA_CASILLAS = {};
 
 // Formato del importe al escribirlo: 'plano' = 1000000, 'miles' = 1.000.000.
-// eslint-disable-next-line no-unused-vars -- lo usa popup.js
+// Marangatu pone los puntos solo (onBlurSoloNumeros).
+// eslint-disable-next-line no-unused-vars -- lo usan popup.js y background.js
 const FORMATO_IMPORTE = 'plano';
 
 // --- Funciones inyectadas (serializadas por executeScript: autocontenidas) ---
 
-// Escribe cada casilla en su campo. Nunca envía ni presenta el formulario.
-// Devuelve { completadas, calculadas, faltantes } para este frame.
-// eslint-disable-next-line no-unused-vars -- lo usa popup.js
-function completarFormulario120(casillas, mapa, formato) {
-  const res = { completadas: [], calculadas: [], faltantes: [] };
-  // Setter nativo: así Angular/React (si los usa Marangatu) ven el cambio.
+// Escribe cada casilla en su campo y después compara los totales que calcula
+// Marangatu con los de la app. Nunca envía ni presenta el formulario. Sólo
+// actúa si la página es el Formulario 120 (tiene #C10 y #C44).
+// soloVacios: no pisa campos que ya tienen un importe (modo automático).
+// Devuelve { esFormulario, completadas, yaTenian, calculadas, faltantes, diferencias }.
+// eslint-disable-next-line no-unused-vars -- lo usan popup.js y background.js
+async function completarFormulario120(casillas, mapa, formato, control, soloVacios) {
+  const res = { esFormulario: false, completadas: [], yaTenian: [], calculadas: [], faltantes: [], diferencias: [] };
+  if (!document.getElementById('C10') || !document.getElementById('C44')) return res;
+  res.esFormulario = true;
+
+  const numero = (v) => { const t = String(v || '').replace(/[^\d-]/g, ''); return t === '' || t === '-' ? 0 : parseInt(t, 10); };
+  const texto = (n) => (formato === 'miles'
+    ? (n < 0 ? '-' : '') + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    : String(n));
+  // Setter nativo, por si el campo lo maneja un framework.
   const escribir = (el, v) => {
     const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');
     if (desc && desc.set) desc.set.call(el, v);
     else el.value = v;
   };
-  const texto = (n) => (formato === 'miles'
-    ? (n < 0 ? '-' : '') + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-    : String(n));
+  const buscar = (cas) => (mapa[cas] ? document.querySelector(mapa[cas]) : document.getElementById('C' + cas));
 
-  const buscar = (cas) => {
-    if (mapa[cas]) return document.querySelector(mapa[cas]);
-    const rx = new RegExp('^(casilla|cas|c)[_-]?0*' + cas + '$', 'i');
-    return [...document.querySelectorAll('input')].find((el) =>
-      rx.test(el.id || '') || rx.test(el.name || '') || rx.test(el.dataset.casilla || '')
-    ) || null;
-  };
-
-  casillas.forEach(({ cas, valor }) => {
+  for (const { cas, valor } of casillas) {
+    if (!valor) continue;
     const el = buscar(cas);
-    if (!el || el.type === 'password' || el.type === 'hidden') {
-      res.faltantes.push(cas);
-      return;
-    }
-    // Campos que el propio formulario calcula: se dejan como están.
-    if (el.readOnly || el.disabled) {
-      res.calculadas.push(cas);
-      return;
-    }
+    if (!el || el.type === 'password' || el.type === 'hidden') { res.faltantes.push(cas); continue; }
+    if (el.readOnly || el.disabled) { res.calculadas.push(cas); continue; }
+    if (soloVacios && numero(el.value) !== 0) { res.yaTenian.push(cas); continue; }
     el.focus();
     escribir(el, texto(valor));
+    // El onchange inline de Marangatu formatea y ejecuta Calcular(this.form).
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
     el.dispatchEvent(new Event('blur', { bubbles: true }));
@@ -60,7 +57,18 @@ function completarFormulario120(casillas, mapa, formato) {
     el.style.backgroundColor = '#fff3b0';
     el.title = 'Completado por Ekuatia Login (casilla ' + cas + '): revisá antes de presentar';
     res.completadas.push(cas);
-  });
+  }
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+
+  // Totales de control: lo que calculó Marangatu contra lo que calculó la
+  // app. Hasta 3 Gs de diferencia se toma como redondeo.
+  await new Promise((r) => setTimeout(r, 300));
+  for (const { cas, valor } of control || []) {
+    const el = buscar(cas);
+    if (!el) continue;
+    const formulario = numero(el.value);
+    if (Math.abs(formulario - valor) > 3) res.diferencias.push({ cas, esperado: valor, formulario });
+  }
   return res;
 }
 
@@ -153,7 +161,22 @@ function mostrarReferenciaIva(info) {
   linea('Ekuatia · Control Clientes', true);
   linea(info.nombre + ' · RUC ' + info.ruc);
   linea('IVA de ' + info.periodoTexto + ' (se presenta en ' + info.presentaTexto + ')', true);
-  linea('Elegí: 211 - IVA General · Mensual · ' + info.anio + ' · ' + info.mesTexto);
+  const r = info.resultado;
+  if (!r) {
+    linea('Elegí: 211 - IVA General · Mensual · ' + info.anio + ' · ' + info.mesTexto);
+  } else {
+    const fmt = (n) => (n < 0 ? '-' : '') + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    linea('Casillas cargadas: ' + (r.completadas.length ? r.completadas.join(', ') : 'ninguna'));
+    if (r.yaTenian.length) linea('Ya tenían importe (no se tocaron): ' + r.yaTenian.join(', '));
+    if (r.faltantes.length) linea('No encontradas (cargalas a mano): ' + r.faltantes.join(', '));
+    if (r.diferencias.length) {
+      linea('Diferencias con la app:', true);
+      r.diferencias.forEach((d) => linea('Casilla ' + d.cas + ': app ' + fmt(d.esperado) + ' · Marangatu ' + fmt(d.formulario)));
+    } else if (r.completadas.length || r.yaTenian.length) {
+      linea('Totales de control: coinciden con la app.');
+    }
+    linea('Revisá los campos en amarillo y presentá vos la declaración.', true);
+  }
   const cerrar = document.createElement('button');
   cerrar.textContent = 'Ocultar';
   cerrar.style.cssText = 'margin-top:6px;font:inherit;border:1px solid #e0a800;background:#fff;border-radius:6px;padding:2px 8px;cursor:pointer';

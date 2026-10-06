@@ -79,7 +79,20 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
     const p = data && data[IVA_STORAGE_KEY];
     if (!p || p.expiresAt < Date.now()) return;
     const ref = referenciaPeriodo(p);
-    chrome.scripting.executeScript({ target: { tabId }, func: mostrarReferenciaIva, args: [ref] }, () => void chrome.runtime.lastError);
+    // Formulario 120 abierto: se completa solo, únicamente en los campos
+    // vacíos (nunca pisa lo que la persona ya escribió) y el resultado se
+    // muestra en el recuadro de referencia.
+    chrome.scripting.executeScript(
+      { target: { tabId, allFrames: true }, func: completarFormulario120, args: [p.casillas, MAPA_CASILLAS, FORMATO_IMPORTE, p.control || [], true] },
+      (frames) => {
+        void chrome.runtime.lastError;
+        const r = (frames || []).map((f) => f.result).find((x) => x && x.esFormulario);
+        chrome.scripting.executeScript(
+          { target: { tabId }, func: mostrarReferenciaIva, args: [{ ...ref, resultado: r || null }] },
+          () => void chrome.runtime.lastError
+        );
+      }
+    );
     if (url.pathname.includes('recibirDDJJContribuyente.do')) {
       chrome.scripting.executeScript(
         { target: { tabId }, func: seleccionarObligacionIva, args: [ref.anio, ref.mes] },
@@ -150,21 +163,29 @@ function abrirPresentarDeclaracion() {
 function validarIva(msg) {
   const periodo = String(msg.periodo || '');
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) return null;
-  if (!Array.isArray(msg.casillas) || !msg.casillas.length || msg.casillas.length > MAX_CASILLAS) return null;
-  const casillas = [];
-  for (const c of msg.casillas) {
-    const cas = String(c && c.cas);
-    const valor = Number(c && c.valor);
-    if (!/^\d{1,4}$/.test(cas) || !Number.isFinite(valor) || !Number.isInteger(valor)) return null;
-    casillas.push({ cas, valor });
-  }
+  const casillas = validarLista(msg.casillas, true);
+  const control = validarLista(msg.control || [], false);
+  if (!casillas || !control) return null;
   return {
     ruc: String(msg.ruc || '').replace(/\D/g, '').slice(0, 12),
     nombre: String(msg.nombre || '').slice(0, 120),
     periodo,
     casillas,
+    control,
     expiresAt: Date.now() + IVA_TTL_MS,
   };
+}
+
+function validarLista(lista, obligatoria) {
+  if (!Array.isArray(lista) || lista.length > MAX_CASILLAS || (obligatoria && !lista.length)) return null;
+  const out = [];
+  for (const c of lista) {
+    const cas = String(c && c.cas);
+    const valor = Number(c && c.valor);
+    if (!/^\d{1,4}$/.test(cas) || !Number.isFinite(valor) || !Number.isInteger(valor)) return null;
+    out.push({ cas, valor });
+  }
+  return out;
 }
 
 // despues(tabId): opcional, se llama con la pestaña abierta (ej. para seguir

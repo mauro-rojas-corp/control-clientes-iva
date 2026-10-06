@@ -247,44 +247,61 @@ export function waLink(ctx, l) {
   return 'https://wa.me/' + p + '?text=' + encodeURIComponent(waText(ctx, l));
 }
 
-// Casillas del Formulario 120 (v4) con su importe, para copiarlas a
-// Marangatu. Las listas con dos casillas ("10 / 22") van a base / impuesto;
-// las que comparten casilla (38, 42) se suman. El Rubro 6 no tiene número de
-// casilla propio en esta app y por eso no se incluye. Provisorio hasta
-// relevar el formulario real: puede faltar alguna casilla que DNIT calcula.
+// Casillas del Formulario 120 (v4) tal como lo arma Marangatu (relevado del
+// formulario real). Marangatu calcula solo el IVA de cada fila (base x tasa)
+// y todos los totales, así que se cargan únicamente las casillas de ingreso,
+// con el MONTO IMPONIBLE. Devuelve:
+//  - cargar:  casillas que la extensión escribe.
+//  - control: totales que calcula Marangatu; la extensión los compara con lo
+//             calculado acá y avisa si no coinciden (tolerancia por redondeo).
+//  - avisos:  importes que la app tiene pero el formulario no deja cargar.
 export function casillasFormulario120(ctx, l) {
-  const k = calc(l, ctx);
-  const out = new Map();
-  const add = (cas, value, label) => {
-    const prev = out.get(cas);
-    out.set(cas, { cas, valor: (prev ? prev.valor : 0) + Math.round(value || 0), label: prev ? prev.label : label });
-  };
-  LISTS.forEach((d) => {
-    const c = k.C[d.k];
-    const pair = d.cas.match(/^(\d+)\s*\/\s*(\d+)$/);
-    if (pair) {
-      add(pair[1], c.base, d.t + ' (monto imponible)');
-      add(pair[2], c.iva, d.t + ' (impuesto)');
-    }
-  });
-  add('12', k.C.vex.base - k.C.ncvex.base, 'Ventas exoneradas o no alcanzadas (neto de NC)');
-  add('17', k.C.nccex.base, 'NC recibidas por compras exoneradas o no alcanzadas');
-  add('18', k.cas.ventasBase, 'Total ventas (monto imponible)');
-  add('43', k.cas[45], 'Total IVA crédito');
-  [
-    [44, 'IVA débito'], [45, 'IVA crédito'], [46, 'Saldo anterior de IVA'], [166, 'Saldo a favor del contribuyente'],
-    [167, 'Saldo a favor remitido al Fisco'], [47, 'Saldo técnico trasladable'], [48, 'Saldo a favor del Fisco'],
-    [49, 'IVA crédito por exportación'], [168, 'Deducción por personas con discapacidad'], [50, 'Impuesto determinado'],
-    [55, 'Impuesto determinado (Rubro 5)'], [51, 'Saldo anterior de retenciones'], [52, 'Retenciones del período'],
-    [169, 'Percepciones'], [56, 'Multa por contravención'], [53, 'Total pagos a cuenta'], [57, 'Total impuesto y multa'],
-    [58, 'Saldo a pagar al Fisco'], [54, 'Saldo de retenciones trasladable'],
-  ].forEach(([cas, label]) => add(String(cas), k.cas[cas], label));
-  return [...out.values()].sort((a, b) => Number(a.cas) - Number(b.cas));
+  l = l || {};
+  const k = calc(l, ctx), C = k.C;
+  const n = (x) => Math.round(Number(x) || 0);
+  const cargar = [
+    ['10', C.v10.base, 'Rubro 1 a) Ventas gravadas al 10% (monto imponible)'],
+    ['150', C.v5a.base, 'Rubro 1 b) Ventas de productos agrícolas al 5%'],
+    ['151', C.v5.base, 'Rubro 1 c) Ventas de otros bienes y servicios al 5%'],
+    ['12', C.vex.base - C.ncvex.base, 'Rubro 1 d) Ventas exoneradas o no alcanzadas (neto de NC emitidas)'],
+    ['15', C.ncc10.base, 'Rubro 1 h) Ajustes / NC recibidas al 10%'],
+    ['154', C.ncc5a.base, 'Rubro 1 i) Ajustes / NC recibidas al 5% (agrícolas)'],
+    ['155', C.ncc5.base, 'Rubro 1 j) Ajustes / NC recibidas al 5%'],
+    ['17', C.nccex.base, 'Rubro 1 k) Ajustes / NC recibidas exoneradas'],
+    ['32', C.c5.base, 'Rubro 3 a) Compras al 5% (monto imponible)'],
+    ['35', C.c10.base, 'Rubro 3 a) Compras al 10% (monto imponible)'],
+    ['34', C.ncv5.base, 'Rubro 3 e) NC emitidas por ventas al 5%'],
+    ['37', C.ncv10.base, 'Rubro 3 e) NC emitidas por ventas al 10%'],
+    ['46', n(l.sant), 'Rubro 4 c) Saldo a favor del período anterior'],
+    ['167', n(l.remit), 'Rubro 4 e) Saldo a favor remitido al Fisco'],
+    ['51', n(l.sret), 'Rubro 5 b) Saldo a favor del período anterior (retenciones)'],
+    ['52', n(l.ret), 'Rubro 5 c) Retenciones computables'],
+    ['62', C.cex.base, 'Rubro 6 d) Compras exentas por operaciones exoneradas'],
+  ].map(([cas, valor, label]) => ({ cas, valor: n(valor), label }));
+
+  const control = [
+    ['18', k.cas.ventasBase, 'Total ventas (monto imponible)'],
+    ['44', k.cas[44], 'IVA débito'],
+    ['45', k.cas[45], 'IVA crédito'],
+    ['47', k.cas[47], 'Saldo a favor a trasladar'],
+    ['48', k.cas[48], 'Saldo a favor del Fisco'],
+    ['50', k.cas[50], 'Impuesto determinado'],
+    ['53', k.cas[53], 'Total pagos a cuenta'],
+  ].map(([cas, valor, label]) => ({ cas, valor: n(valor), label }));
+
+  const avisos = [];
+  if (n(l.perc)) avisos.push('Percepciones (casilla 169): el formulario la fija en 0; Gs. ' + gs(l.perc) + ' no se pueden cargar acá.');
+  if (n(l.disc)) avisos.push('Deducción por discapacidad (casilla 168): el formulario la fija en 0.');
+  if (n(l.expo)) avisos.push('IVA crédito por exportación (casilla 49): sale del Anexo Exportador, no se carga directo.');
+  if (l.manual) avisos.push('El IVA a pagar está cargado a mano en la app: el formulario va a calcular su propio resultado.');
+  avisos.push('La multa por presentación tardía (casilla 56) y por lo tanto el saldo a pagar (58) los calcula Marangatu con su fecha.');
+  return { cargar, control, avisos };
 }
 
 export function casillasTexto(ctx, l) {
-  const lines = ['Formulario 120 - ' + perLabel(ctx.periodo), ctx.cliente.nombre + ' - RUC ' + rucTexto(ctx.cliente), ''];
-  casillasFormulario120(ctx, l).forEach((c) => lines.push('Casilla ' + c.cas + ': ' + gs(c.valor) + '  (' + c.label + ')'));
+  const { cargar } = casillasFormulario120(ctx, l);
+  const lines = ['Formulario 120 - IVA de ' + perLabel(ctx.periodo), ctx.cliente.nombre + ' - RUC ' + rucTexto(ctx.cliente), ''];
+  cargar.filter((c) => c.valor).forEach((c) => lines.push('Casilla ' + c.cas + ': ' + gs(c.valor) + '  (' + c.label + ')'));
   return lines.join('\n');
 }
 

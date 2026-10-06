@@ -29,7 +29,7 @@ export function openMarangatuLogin({ user, pass }) {
 // extensión las guarda sólo en memoria (chrome.storage.session, con
 // vencimiento) hasta que se pulsa "Completar formulario" en Marangatu, y
 // abre el login con las credenciales si vienen. Resuelve { ok, error }.
-export function sendIvaToMarangatu({ ruc, nombre, periodo, casillas, credentials }) {
+export function sendIvaToMarangatu({ ruc, nombre, periodo, casillas, control = [], credentials }) {
   const runtime = typeof chrome !== 'undefined' ? chrome.runtime : undefined;
   if (!MARANGATU_EXT_ID || !runtime?.sendMessage) {
     return Promise.resolve({ ok: false, error: 'NO_EXTENSION' });
@@ -44,6 +44,7 @@ export function sendIvaToMarangatu({ ruc, nombre, periodo, casillas, credentials
           nombre,
           periodo,
           casillas: casillas.map(({ cas, valor }) => ({ cas, valor })),
+          control: control.map(({ cas, valor }) => ({ cas, valor })),
           user: credentials?.user || '',
           pass: credentials?.pass || '',
         },

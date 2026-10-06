@@ -57,25 +57,22 @@ $('completar').addEventListener('click', async () => {
     const frames = await chrome.scripting.executeScript({
       target: { tabId: tabMarangatu.id, allFrames: true },
       func: completarFormulario120,
-      args: [pendiente.casillas, MAPA_CASILLAS, FORMATO_IMPORTE],
+      // Botón manual: escribe todas las casillas, aunque ya tengan importe.
+      args: [pendiente.casillas, MAPA_CASILLAS, FORMATO_IMPORTE, pendiente.control || [], false],
     });
-    // Una casilla falta sólo si no apareció en ningún frame.
-    const completadas = new Set();
-    const calculadas = new Set();
-    frames.forEach(({ result }) => {
-      (result?.completadas || []).forEach((c) => completadas.add(c));
-      (result?.calculadas || []).forEach((c) => calculadas.add(c));
-    });
-    const faltantes = pendiente.casillas
-      .filter((c) => c.valor && !completadas.has(c.cas) && !calculadas.has(c.cas))
-      .map((c) => c.cas);
+    const r = frames.map((f) => f.result).find((x) => x && x.esFormulario);
+    const fmt = (n) => (n < 0 ? '-' : '') + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    if (!r) {
+      resultado.innerHTML = '<h2>Resultado</h2><p class="bad">Esta página no es el Formulario 120. Elegí IVA y período y pulsá Continuar.</p>';
+      return;
+    }
     resultado.innerHTML =
       '<h2>Resultado</h2>' +
-      '<p class="ok">Completadas: ' + completadas.size + '</p>' +
-      (calculadas.size ? '<p class="muted">Las calcula el formulario: ' + [...calculadas].join(', ') + '</p>' : '') +
-      (faltantes.length
-        ? '<p class="bad">No encontradas: ' + faltantes.join(', ') + '</p><p class="muted">Cargalas a mano. Si faltan muchas, todavía no está configurada la correspondencia: usá Relevar formulario.</p>'
-        : '') +
+      '<p class="ok">Cargadas: ' + (r.completadas.join(', ') || 'ninguna') + '</p>' +
+      (r.faltantes.length ? '<p class="bad">No encontradas (cargalas a mano): ' + r.faltantes.join(', ') + '</p>' : '') +
+      (r.diferencias.length
+        ? '<p class="bad">Diferencias con la app:</p>' + r.diferencias.map((d) => '<p class="bad">Casilla ' + esc(d.cas) + ': app ' + fmt(d.esperado) + ' · Marangatu ' + fmt(d.formulario) + '</p>').join('')
+        : '<p class="ok">Totales de control: coinciden con la app.</p>') +
       '<p class="warn">Revisá los campos marcados en amarillo y presentá vos la declaración.</p>';
   } catch (err) {
     resultado.innerHTML = '<h2>Resultado</h2><p class="bad">No se pudo completar: ' + esc(err.message) + '</p>';

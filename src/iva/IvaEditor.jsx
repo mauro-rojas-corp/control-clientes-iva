@@ -545,10 +545,10 @@ export default function IvaEditor({
 // las escribe en el Formulario 120 de Marangatu. La presentación la confirma
 // siempre la persona: la extensión nunca pulsa "Presentar".
 function MarangatuModal({ ctx, draft, onClose, toast }) {
-  const casillas = useMemo(() => casillasFormulario120(ctx, draft), [ctx, draft]);
+  const { cargar, control, avisos } = useMemo(() => casillasFormulario120(ctx, draft), [ctx, draft]);
   const [soloConImporte, setSoloConImporte] = useState(true);
   const [status, setStatus] = useState('idle'); // idle | sending | sent | no-extension
-  const visibles = soloConImporte ? casillas.filter((c) => c.valor) : casillas;
+  const visibles = soloConImporte ? cargar.filter((c) => c.valor) : cargar;
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -571,7 +571,8 @@ function MarangatuModal({ ctx, draft, onClose, toast }) {
       ruc: ctx.cliente.ruc,
       nombre: ctx.cliente.nombre,
       periodo: ctx.periodo,
-      casillas,
+      casillas: cargar,
+      control,
       credentials: ctx.cliente.marangatu,
     });
     if (resp.ok) setStatus('sent');
@@ -616,13 +617,21 @@ function MarangatuModal({ ctx, draft, onClose, toast }) {
             <div className="iva-tblw iva-modal-list">
               <table className="iva-tbl">
                 <tbody>
+                  <tr className="strong"><td colSpan={3}>Se cargan (monto imponible; Marangatu calcula el IVA)</td></tr>
                   {visibles.map((c) => (
                     <tr key={c.cas}><td className="cas">{c.cas}</td><td>{c.label}</td><td className="num">{gs(c.valor)}</td></tr>
                   ))}
                   {!visibles.length && <tr><td colSpan={3} className="sub">No hay casillas con importe todavía.</td></tr>}
+                  <tr className="strong"><td colSpan={3}>Control: Marangatu tiene que llegar a</td></tr>
+                  {control.map((c) => (
+                    <tr key={'k' + c.cas}><td className="cas">{c.cas}</td><td>{c.label}</td><td className="num">{gs(c.valor)}</td></tr>
+                  ))}
                 </tbody>
               </table>
             </div>
+            <ul className="iva-avisos">
+              {avisos.map((a) => <li key={a}>{a}</li>)}
+            </ul>
             {status === 'no-extension' && (
               <div className="iva-error iva-modal-alert" role="alert">
                 No se encontró la extensión Ekuatia Login (o falta configurar su ID). Podés copiar la lista y cargarla a mano.
