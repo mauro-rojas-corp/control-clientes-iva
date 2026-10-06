@@ -97,20 +97,29 @@ export default function IvaModule({ withDesktopSidebar = false, initialRuc = nul
   }, []);
   useEffect(() => () => clearTimeout(toastTimer.current), []);
 
-  // Clientes = filas de la planilla del mes, identificadas por RUC sin DV.
+  // Una entrada por fila de la planilla del mes: la misma lista que la
+  // pestaña Clientes. La liquidación se identifica por RUC sin DV, así que
+  // una fila sin RUC no se puede liquidar y dos filas con el mismo RUC
+  // comparten liquidación; ambos casos se muestran marcados (antes se
+  // descartaban en silencio y las listas no coincidían).
   // WhatsApp y notas propias del IVA se guardan aparte ("IVA Clientes").
-  const clientes = useMemo(() => {
+  const filas = useMemo(() => {
     const dvKey = findDvColumn(headers || []);
     const waKey = findWhatsappColumn(headers || []);
     const claveKey = findClaveMarangatuColumn(headers || []);
-    const out = {};
-    (assignedRows || []).forEach((row) => {
-      if (!rucKey) return;
-      const { ruc, dv } = splitRuc(row[rucKey], dvKey ? row[dvKey] : '');
-      if (!ruc || out[ruc]) return;
-      const extra = extras[ruc] || {};
-      out[ruc] = {
-        id: ruc,
+    const primeraFila = {};
+    return (assignedRows || []).map((row) => {
+      const { ruc, dv } = rucKey ? splitRuc(row[rucKey], dvKey ? row[dvKey] : '') : { ruc: '', dv: '' };
+      let problema = '';
+      if (!ruc) problema = 'sin-ruc';
+      else if (primeraFila[ruc]) problema = 'ruc-repetido';
+      else primeraFila[ruc] = row._row;
+      const extra = (ruc && extras[ruc]) || {};
+      return {
+        id: 'fila-' + row._row,
+        fila: row._row,
+        problema,
+        filaOriginal: problema === 'ruc-repetido' ? primeraFila[ruc] : null,
         ruc,
         dv,
         nombre: String((nameKey && row[nameKey]) || '').trim() || 'Sin nombre',
@@ -119,13 +128,19 @@ export default function IvaModule({ withDesktopSidebar = false, initialRuc = nul
         encargado: String((encargadoCol && row[encargadoCol]) || row._assignedUser || ''),
         // Login de Marangatu (RUC tal cual la planilla + Clave MH), igual
         // que el botón de la lista de clientes. Sólo en memoria.
-        marangatu: claveKey && String(row[claveKey] ?? '').trim()
+        marangatu: rucKey && claveKey && String(row[claveKey] ?? '').trim()
           ? { user: String(row[rucKey] ?? '').trim(), pass: String(row[claveKey]).trim() }
           : null,
       };
     });
-    return out;
   }, [assignedRows, headers, nameKey, rucKey, encargadoCol, extras]);
+
+  // Para abrir el editor por RUC: la primera fila con ese RUC.
+  const clientes = useMemo(() => {
+    const out = {};
+    filas.forEach((c) => { if (c.ruc && !out[c.ruc]) out[c.ruc] = c; });
+    return out;
+  }, [filas]);
 
   // Trae el período y el anterior (para los saldos). El estado se aplica
   // recién cuando responde el servidor.
@@ -172,17 +187,22 @@ export default function IvaModule({ withDesktopSidebar = false, initialRuc = nul
     return () => clearInterval(timer);
   }, [load, periodo, view]);
 
-  const rows = useMemo(() => Object.values(clientes).map((c) => {
-    const l = liq[liqKey(c.ruc, periodo)];
+  const rows = useMemo(() => filas.map((c) => {
+    const l = c.ruc ? liq[liqKey(c.ruc, periodo)] : undefined;
     const ctx = { config, cliente: c, periodo };
     return {
-      id: c.ruc, c, l,
+      id: c.id, ruc: c.ruc, c, l,
       t: lastDigit(c.ruc),
-      v: vencDe(config, c, l, periodo),
+      v: c.ruc ? vencDe(config, c, l, periodo) : null,
       k: l ? calc(l, ctx) : null,
       estado: l ? (l.estado || 'pend') : 'none',
     };
-  }).sort((a, b) => (a.v ? a.v.fecha : 0) - (b.v ? b.v.fecha : 0) || a.c.nombre.localeCompare(b.c.nombre)), [clientes, liq, periodo, config]);
+  }).sort((a, b) => (a.v ? a.v.fecha : 0) - (b.v ? b.v.fecha : 0) || a.c.nombre.localeCompare(b.c.nombre)), [filas, liq, periodo, config]);
+
+  const problemas = useMemo(() => ({
+    sinRuc: filas.filter((c) => c.problema === 'sin-ruc').length,
+    repetidos: filas.filter((c) => c.problema === 'ruc-repetido').length,
+  }), [filas]);
 
   const visibleRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -301,10 +321,19 @@ export default function IvaModule({ withDesktopSidebar = false, initialRuc = nul
           onEstadoFilter={setEstadoFilter}
           query={query}
           onQuery={setQuery}
-          onOpen={(ruc) => { setEditRuc(ruc); setView('editor'); window.scrollTo(0, 0); }}
+          onOpen={(r) => {
+            if (!r.ruc) {
+              toast('Esta fila no tiene RUC en la planilla: cargalo en la pestaña Clientes para liquidar su IVA.');
+              return;
+            }
+            setEditRuc(r.ruc);
+            setView('editor');
+            window.scrollTo(0, 0);
+          }}
           onRefresh={refresh}
           onExportPdf={exportPdf}
           hasRucColumn={Boolean(rucKey)}
+          problemas={problemas}
         />
       )}
 
@@ -315,7 +344,7 @@ export default function IvaModule({ withDesktopSidebar = false, initialRuc = nul
 
 function Tablero({
   periodo, onShiftPeriodo, config, rows, visibleRows, loading, dayFilter, onDayFilter,
-  estadoFilter, onEstadoFilter, query, onQuery, onOpen, onRefresh, onExportPdf, hasRucColumn,
+  estadoFilter, onEstadoFilter, query, onQuery, onOpen, onRefresh, onExportPdf, hasRucColumn, problemas,
 }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -332,7 +361,7 @@ function Tablero({
   } else if (loading && !rows.length) {
     body = <div className="iva-empty">Cargando…</div>;
   } else if (!rows.length) {
-    body = <div className="iva-empty">No hay clientes con RUC en la planilla de este mes.</div>;
+    body = <div className="iva-empty">No hay clientes en la planilla de este mes.</div>;
   } else if (!visibleRows.length) {
     body = <div className="iva-empty">Ningún cliente coincide con el filtro.</div>;
   } else {
@@ -351,16 +380,23 @@ function Tablero({
                   key={r.id}
                   className="r"
                   tabIndex={0}
-                  onClick={() => onOpen(r.id)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onOpen(r.id); }}
+                  onClick={() => onOpen(r)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') onOpen(r); }}
                 >
                   <td className="band"><span style={{ background: col }} /></td>
                   <td>
                     <div className="name">
                       {r.c.nombre}
                       {r.c.notas && <span className="iva-tag exc" title={r.c.notas}>Excepción</span>}
+                      {r.c.problema === 'sin-ruc' && <span className="iva-tag exc">Sin RUC</span>}
+                      {r.c.problema === 'ruc-repetido' && (
+                        <span className="iva-tag pend" title={`Mismo RUC que la fila ${r.c.filaOriginal}: comparten la liquidación`}>RUC repetido</span>
+                      )}
                     </div>
-                    <div className="sub">RUC {rucTexto(r.c)}{r.c.encargado ? ' · ' + r.c.encargado : ''}</div>
+                    <div className="sub">
+                      {r.ruc ? 'RUC ' + rucTexto(r.c) : 'Fila ' + r.c.fila + ' de la planilla'}
+                      {r.c.encargado ? ' · ' + r.c.encargado : ''}
+                    </div>
                   </td>
                   <td>
                     {r.v ? (
@@ -368,7 +404,7 @@ function Tablero({
                         <div>{DIAS_C[r.v.fecha.getDay()]} {fechaCorta(r.v.fecha)}</div>
                         <div className="sub">{r.v.manual ? 'Fecha ajustada a mano' : 'VENC. ' + r.t + (r.v.inhabil ? ' · cae en día inhábil' : '')}</div>
                       </>
-                    ) : <span className="sub">RUC inválido</span>}
+                    ) : <span className="sub">{r.ruc ? 'RUC inválido' : 'Sin RUC'}</span>}
                   </td>
                   <td className="num">
                     {r.k
@@ -435,6 +471,11 @@ function Tablero({
         </button>
       </div>
 
+      <p className="iva-conteo sub">
+        {rows.length} clientes de la planilla (los mismos que en Clientes)
+        {problemas.sinRuc ? ` · ${problemas.sinRuc} sin RUC (no se pueden liquidar hasta cargarlo)` : ''}
+        {problemas.repetidos ? ` · ${problemas.repetidos} con RUC repetido` : ''}
+      </p>
       <div className="iva-panel">{body}</div>
     </>
   );

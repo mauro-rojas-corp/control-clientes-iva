@@ -53,12 +53,55 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: false, error: 'no se pudieron guardar los datos' });
       return;
     }
-    if (user) abrirLogin(user, pass);
-    else chrome.tabs.create({ url: LOGIN_URL });
+    // Después del login (automático o a mano) entra a "Presentar Declaración".
+    if (user) abrirLogin(user, pass, irAPresentarCuandoEntre);
+    else chrome.tabs.create({ url: LOGIN_URL }, (tab) => irAPresentarCuandoEntre(tab.id));
     sendResponse({ ok: true });
   });
   return true;
 });
+
+// Espera a que la pestaña salga del login y, en la página de inicio, entra a
+// "Presentar Declaración" (enlace recibirDDJJContribuyente.do, cuyo token
+// _cyp es de la sesión: se toma del propio enlace de la página). Se rinde a
+// los 3 minutos o cuando ya entró. No completa ni presenta nada.
+const PRESENTAR_TIMEOUT_MS = 3 * 60 * 1000;
+
+function irAPresentarCuandoEntre(tabId) {
+  const limite = Date.now() + PRESENTAR_TIMEOUT_MS;
+  const onUpdated = (id, info, tab) => {
+    if (id !== tabId || info.status !== 'complete') return;
+    if (Date.now() > limite) {
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      return;
+    }
+    const url = String(tab.url || '');
+    if (url.includes('/login') || url.includes('recibirDDJJContribuyente.do')) {
+      if (url.includes('recibirDDJJContribuyente.do')) chrome.tabs.onUpdated.removeListener(onUpdated);
+      return;
+    }
+    chrome.scripting.executeScript(
+      { target: { tabId }, func: abrirPresentarDeclaracion },
+      (res) => {
+        if (!chrome.runtime.lastError && res && res[0] && res[0].result) {
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+        }
+      }
+    );
+  };
+  chrome.tabs.onUpdated.addListener(onUpdated);
+}
+
+// Inyectada en Marangatu: navega (en la misma pestaña) al enlace de
+// "Presentar Declaración" si está en la página. Devuelve si lo encontró.
+function abrirPresentarDeclaracion() {
+  const link = document.querySelector('a[href*="recibirDDJJContribuyente.do"]')
+    || [...document.querySelectorAll('a')].find((a) =>
+      /presentar declaraci/i.test(a.title || a.getAttribute('data-tooltip') || ''));
+  if (!link || !link.href) return false;
+  location.href = link.href;
+  return true;
+}
 
 // Sólo números: casilla (1 a 4 dígitos) e importe entero en guaraníes.
 function validarIva(msg) {
@@ -81,9 +124,12 @@ function validarIva(msg) {
   };
 }
 
-function abrirLogin(user, pass) {
+// despues(tabId): opcional, se llama con la pestaña abierta (ej. para seguir
+// hasta "Presentar Declaración" una vez iniciada la sesión).
+function abrirLogin(user, pass, despues) {
   chrome.tabs.create({ url: LOGIN_URL }, (tab) => {
     const tabId = tab.id;
+    if (despues) despues(tabId);
 
     const inject = (attempts) => {
       chrome.scripting.executeScript(
