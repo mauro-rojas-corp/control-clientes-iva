@@ -94,3 +94,69 @@ function relevarFormulario() {
     campos,
   };
 }
+
+// Pantalla "Presentar Declaración" (recibirDDJJContribuyente.do, AngularJS):
+// elige 211 - IVA General, periodicidad MENSUAL, año y mes del período
+// fiscal. Cada select se llena recién cuando se eligió el anterior, por eso
+// se espera a que aparezcan sus opciones. No pulsa el botón de continuar.
+// Devuelve { ok, pasos, error }.
+// eslint-disable-next-line no-unused-vars -- lo usan popup.js y background.js
+async function seleccionarObligacionIva(anio, mes) {
+  const pasos = [];
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+  const buscar = (modelo) => document.querySelector('select[data-ng-model="' + modelo + '"], select[ng-model="' + modelo + '"]');
+  const elegir = async (modelo, valor, nombre) => {
+    for (let i = 0; i < 40; i++) {
+      const sel = buscar(modelo);
+      const opt = sel && [...sel.options].find((o) => o.value === String(valor));
+      if (opt) {
+        if (sel.value !== opt.value) {
+          sel.value = opt.value;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        sel.style.outline = '2px solid #e0a800';
+        pasos.push(nombre + ': ' + opt.textContent.replace(/\s+/g, ' ').trim());
+        return true;
+      }
+      await esperar(250);
+    }
+    return false;
+  };
+  if (!buscar('vm.datos.obligacion')) return { ok: false, pasos, error: 'No es la pantalla de selección de obligación' };
+  if (!(await elegir('vm.datos.obligacion', '211', 'Obligación'))) return { ok: false, pasos, error: 'No aparece 211 - IVA General para este contribuyente' };
+  if (!(await elegir('vm.datos.periodicidad', '1', 'Periodicidad'))) return { ok: false, pasos, error: 'No aparece la periodicidad MENSUAL' };
+  if (!(await elegir('vm.datos.anio', String(anio), 'Año'))) return { ok: false, pasos, error: 'No aparece el año ' + anio };
+  if (!(await elegir('vm.datos.mes', String(mes), 'Mes'))) return { ok: false, pasos, error: 'No aparece el mes ' + mes };
+  return { ok: true, pasos };
+}
+
+// Recuadro fijo en Marangatu con el cliente y el período a declarar, para
+// tener la referencia a la vista. Se puede cerrar; no tapa el formulario.
+// eslint-disable-next-line no-unused-vars -- lo usa background.js
+function mostrarReferenciaIva(info) {
+  let box = document.getElementById('ekuatia-referencia');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'ekuatia-referencia';
+    box.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:2147483647;max-width:320px;' +
+      'background:#fffbe6;color:#14213a;border:2px solid #e0a800;border-radius:10px;padding:10px 12px;' +
+      'font:13px/1.4 system-ui,Segoe UI,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.2)';
+    document.body.appendChild(box);
+  }
+  box.textContent = '';
+  const linea = (texto, negrita) => {
+    const d = document.createElement('div');
+    d.textContent = texto;
+    if (negrita) d.style.fontWeight = '700';
+    box.appendChild(d);
+  };
+  linea('Ekuatia · Control Clientes', true);
+  linea(info.nombre + ' · RUC ' + info.ruc);
+  linea('IVA de ' + info.periodoTexto + ' (se presenta en ' + info.presentaTexto + ')', true);
+  linea('Elegí: 211 - IVA General · Mensual · ' + info.anio + ' · ' + info.mesTexto);
+  const cerrar = document.createElement('button');
+  cerrar.textContent = 'Ocultar';
+  cerrar.style.cssText = 'margin-top:6px;font:inherit;border:1px solid #e0a800;background:#fff;border-radius:6px;padding:2px 8px;cursor:pointer';
+  cerrar.onclick = () => box.remove();
+  box.appendChild(cerrar);
+}

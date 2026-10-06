@@ -10,7 +10,12 @@
 //    login como APP_AUTO_LOGIN.
 // Las credenciales nunca se guardan, ni se colocan en la URL, el historial
 // o el portapapeles.
+// seleccionarObligacionIva y mostrarReferenciaIva viven en formulario120.js.
+importScripts('formulario120.js');
+
 const LOGIN_URL = 'https://marangatu.set.gov.py/eset/login';
+const MARANGATU_HOST = 'marangatu.set.gov.py';
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const IVA_STORAGE_KEY = 'ivaPendiente';
 const IVA_TTL_MS = 30 * 60 * 1000;
 const MAX_CASILLAS = 120;
@@ -60,6 +65,44 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
   });
   return true;
 });
+
+// Mientras haya casillas pendientes, en cada página de Marangatu se muestra
+// la referencia (cliente y período) y, en "Presentar Declaración", se eligen
+// 211 - IVA General, Mensual, año y mes. Se hace una vez por carga de página.
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status !== 'complete') return;
+  let url;
+  try { url = new URL(tab.url || ''); } catch { return; }
+  if (url.hostname !== MARANGATU_HOST || url.pathname.includes('/login')) return;
+
+  chrome.storage.session.get(IVA_STORAGE_KEY, (data) => {
+    const p = data && data[IVA_STORAGE_KEY];
+    if (!p || p.expiresAt < Date.now()) return;
+    const ref = referenciaPeriodo(p);
+    chrome.scripting.executeScript({ target: { tabId }, func: mostrarReferenciaIva, args: [ref] }, () => void chrome.runtime.lastError);
+    if (url.pathname.includes('recibirDDJJContribuyente.do')) {
+      chrome.scripting.executeScript(
+        { target: { tabId }, func: seleccionarObligacionIva, args: [ref.anio, ref.mes] },
+        () => void chrome.runtime.lastError
+      );
+    }
+  });
+});
+
+// "2026-05" -> datos para la referencia: el IVA de mayo se presenta en junio.
+function referenciaPeriodo(p) {
+  const [anio, mes] = p.periodo.split('-').map(Number);
+  const presenta = mes === 12 ? { m: 1, a: anio + 1 } : { m: mes + 1, a: anio };
+  return {
+    nombre: p.nombre || 'Cliente',
+    ruc: p.ruc,
+    anio,
+    mes,
+    mesTexto: MESES[mes - 1],
+    periodoTexto: MESES[mes - 1] + ' ' + anio,
+    presentaTexto: MESES[presenta.m - 1] + ' ' + presenta.a,
+  };
+}
 
 // Espera a que la pestaña salga del login y, en la página de inicio, entra a
 // "Presentar Declaración" (enlace recibirDDJJContribuyente.do, cuyo token

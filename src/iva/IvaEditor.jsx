@@ -24,6 +24,7 @@ import {
   lastDigit,
   normDraft,
   perLabel,
+  shiftPer,
   resumenHoja,
   textOn,
   toNum,
@@ -587,7 +588,11 @@ function MarangatuModal({ ctx, draft, onClose, toast }) {
         <div className="iva-modal-head">
           <div>
             <h2 id="iva-mg-title">Copiar a Marangatu</h2>
-            <p className="sub">Formulario 120 · {perLabel(ctx.periodo)} · {ctx.cliente.nombre}</p>
+            <p className="sub">Formulario 120 · {ctx.cliente.nombre}</p>
+            <p className="iva-ref">
+              IVA de <b>{perLabel(ctx.periodo)}</b> (se presenta en {perLabel(shiftPer(ctx.periodo, 1))}).
+              En Marangatu: <b>211 - IVA General · Mensual · {perLabel(ctx.periodo).split(' ')[1]} · {perLabel(ctx.periodo).split(' ')[0]}</b>
+            </p>
           </div>
           <button type="button" className="iva-iconbtn" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
         </div>
@@ -596,8 +601,8 @@ function MarangatuModal({ ctx, draft, onClose, toast }) {
           <div className="iva-modal-body">
             <ol className="iva-steps">
               <li>{ctx.cliente.marangatu ? 'Se abrió Marangatu e inicia sesión con la clave del cliente.' : 'Se abrió Marangatu: iniciá sesión con la clave del cliente.'}</li>
-              <li>Entrá al <b>Formulario 120</b> del período <b>{perLabel(ctx.periodo)}</b>.</li>
-              <li>Tocá el ícono de la extensión <b>Ekuatia Login</b> → <b>Completar formulario</b>.</li>
+              <li>La extensión entra a <b>Presentar Declaración</b> y elige <b>211 - IVA General · Mensual · {perLabel(ctx.periodo)}</b>. Revisá la selección y continuá.</li>
+              <li>En el formulario, tocá el ícono de la extensión <b>Ekuatia Login</b> → <b>Completar formulario</b>.</li>
               <li>Revisá cada casilla marcada en amarillo y presentá vos la declaración.</li>
             </ol>
             <p className="hint">Los datos quedan en la extensión 30 minutos y se borran al cerrar el navegador.</p>

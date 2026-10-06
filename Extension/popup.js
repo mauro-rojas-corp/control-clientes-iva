@@ -2,13 +2,15 @@
 // mandó Control Clientes y genera el relevamiento de campos.
 // MAPA_CASILLAS, FORMATO_IMPORTE, completarFormulario120 y relevarFormulario
 // vienen de formulario120.js (cargado antes en popup.html).
-/* global MAPA_CASILLAS, FORMATO_IMPORTE, completarFormulario120, relevarFormulario */
+/* global MAPA_CASILLAS, FORMATO_IMPORTE, completarFormulario120, relevarFormulario, seleccionarObligacionIva */
 const IVA_STORAGE_KEY = 'ivaPendiente';
 const MARANGATU_HOST = 'marangatu.set.gov.py';
 
 const $ = (id) => document.getElementById(id);
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const perLabel = (p) => { const [y, m] = p.split('-'); return MESES[Number(m) - 1] + ' ' + y; };
+// El IVA de un mes se presenta en el mes siguiente.
+const presentaLabel = (p) => { const [y, m] = p.split('-').map(Number); return m === 12 ? perLabel((y + 1) + '-01') : perLabel(y + '-' + String(m + 1).padStart(2, '0')); };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let pendiente = null;
@@ -38,11 +40,12 @@ function render() {
     const conImporte = pendiente.casillas.filter((c) => c.valor).length;
     box.innerHTML =
       '<p><b>' + esc(pendiente.nombre || 'Cliente') + '</b> · RUC ' + esc(pendiente.ruc) + '</p>' +
-      '<p>Período ' + esc(perLabel(pendiente.periodo)) + ' · ' + conImporte + ' casillas con importe</p>' +
+      '<p>IVA de <b>' + esc(perLabel(pendiente.periodo)) + '</b> (se presenta en ' + esc(presentaLabel(pendiente.periodo)) + ') · ' + conImporte + ' casillas con importe</p>' +
       '<p class="muted">Se borran en ' + min + ' min o al cerrar el navegador.</p>' +
       (tabMarangatu ? '' : '<p class="warn">Abrí esta ventana estando en el Formulario 120 de Marangatu.</p>');
   }
   $('completar').disabled = !pendiente || !tabMarangatu;
+  $('seleccionar').disabled = !pendiente || !tabMarangatu;
   $('descartar').disabled = !pendiente;
   $('relevar').disabled = !tabMarangatu;
 }
@@ -76,6 +79,26 @@ $('completar').addEventListener('click', async () => {
       '<p class="warn">Revisá los campos marcados en amarillo y presentá vos la declaración.</p>';
   } catch (err) {
     resultado.innerHTML = '<h2>Resultado</h2><p class="bad">No se pudo completar: ' + esc(err.message) + '</p>';
+  } finally {
+    render();
+  }
+});
+
+$('seleccionar').addEventListener('click', async () => {
+  $('seleccionar').disabled = true;
+  const resultado = $('resultado');
+  const [anio, mes] = pendiente.periodo.split('-').map(Number);
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tabMarangatu.id },
+      func: seleccionarObligacionIva,
+      args: [anio, mes],
+    });
+    resultado.innerHTML = '<h2>Selección</h2>' +
+      (result.pasos || []).map((p) => '<p class="ok">' + esc(p) + '</p>').join('') +
+      (result.ok ? '<p class="warn">Revisá y pulsá el botón para continuar.</p>' : '<p class="bad">' + esc(result.error) + '</p>');
+  } catch (err) {
+    resultado.innerHTML = '<h2>Selección</h2><p class="bad">No se pudo: ' + esc(err.message) + '</p>';
   } finally {
     render();
   }

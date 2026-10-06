@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ekuatia Login",
-  "version": "1.5",
+  "version": "1.6",
   "description": "Puente de acceso a Marangatu desde Control Clientes: login y carga del Formulario 120",
   "permissions": ["scripting", "tabs", "storage"],
   "host_permissions": ["https://marangatu.set.gov.py/*"],
