@@ -1,0 +1,114 @@
+// Popup de Ekuatia Login: completa el Formulario 120 con las casillas que
+// mandó Control Clientes y genera el relevamiento de campos.
+// MAPA_CASILLAS, FORMATO_IMPORTE, completarFormulario120 y relevarFormulario
+// vienen de formulario120.js (cargado antes en popup.html).
+/* global MAPA_CASILLAS, FORMATO_IMPORTE, completarFormulario120, relevarFormulario */
+const IVA_STORAGE_KEY = 'ivaPendiente';
+const MARANGATU_HOST = 'marangatu.set.gov.py';
+
+const $ = (id) => document.getElementById(id);
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const perLabel = (p) => { const [y, m] = p.split('-'); return MESES[Number(m) - 1] + ' ' + y; };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let pendiente = null;
+let tabMarangatu = null;
+
+async function init() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  try {
+    if (tab && new URL(tab.url).hostname === MARANGATU_HOST) tabMarangatu = tab;
+  } catch { /* pestaña sin URL accesible */ }
+
+  const data = await chrome.storage.session.get(IVA_STORAGE_KEY);
+  pendiente = data[IVA_STORAGE_KEY] || null;
+  if (pendiente && pendiente.expiresAt < Date.now()) {
+    await chrome.storage.session.remove(IVA_STORAGE_KEY);
+    pendiente = null;
+  }
+  render();
+}
+
+function render() {
+  const box = $('pendiente');
+  if (!pendiente) {
+    box.innerHTML = 'No hay datos para cargar. Usá <b>Copiar a Marangatu</b> en la ficha IVA del cliente.';
+  } else {
+    const min = Math.max(1, Math.round((pendiente.expiresAt - Date.now()) / 60000));
+    const conImporte = pendiente.casillas.filter((c) => c.valor).length;
+    box.innerHTML =
+      '<p><b>' + esc(pendiente.nombre || 'Cliente') + '</b> · RUC ' + esc(pendiente.ruc) + '</p>' +
+      '<p>Período ' + esc(perLabel(pendiente.periodo)) + ' · ' + conImporte + ' casillas con importe</p>' +
+      '<p class="muted">Se borran en ' + min + ' min o al cerrar el navegador.</p>' +
+      (tabMarangatu ? '' : '<p class="warn">Abrí esta ventana estando en el Formulario 120 de Marangatu.</p>');
+  }
+  $('completar').disabled = !pendiente || !tabMarangatu;
+  $('descartar').disabled = !pendiente;
+  $('relevar').disabled = !tabMarangatu;
+}
+
+$('completar').addEventListener('click', async () => {
+  $('completar').disabled = true;
+  const resultado = $('resultado');
+  try {
+    const frames = await chrome.scripting.executeScript({
+      target: { tabId: tabMarangatu.id, allFrames: true },
+      func: completarFormulario120,
+      args: [pendiente.casillas, MAPA_CASILLAS, FORMATO_IMPORTE],
+    });
+    // Una casilla falta sólo si no apareció en ningún frame.
+    const completadas = new Set();
+    const calculadas = new Set();
+    frames.forEach(({ result }) => {
+      (result?.completadas || []).forEach((c) => completadas.add(c));
+      (result?.calculadas || []).forEach((c) => calculadas.add(c));
+    });
+    const faltantes = pendiente.casillas
+      .filter((c) => c.valor && !completadas.has(c.cas) && !calculadas.has(c.cas))
+      .map((c) => c.cas);
+    resultado.innerHTML =
+      '<h2>Resultado</h2>' +
+      '<p class="ok">Completadas: ' + completadas.size + '</p>' +
+      (calculadas.size ? '<p class="muted">Las calcula el formulario: ' + [...calculadas].join(', ') + '</p>' : '') +
+      (faltantes.length
+        ? '<p class="bad">No encontradas: ' + faltantes.join(', ') + '</p><p class="muted">Cargalas a mano. Si faltan muchas, todavía no está configurada la correspondencia: usá Relevar formulario.</p>'
+        : '') +
+      '<p class="warn">Revisá los campos marcados en amarillo y presentá vos la declaración.</p>';
+  } catch (err) {
+    resultado.innerHTML = '<h2>Resultado</h2><p class="bad">No se pudo completar: ' + esc(err.message) + '</p>';
+  } finally {
+    render();
+  }
+});
+
+$('descartar').addEventListener('click', async () => {
+  await chrome.storage.session.remove(IVA_STORAGE_KEY);
+  pendiente = null;
+  $('resultado').innerHTML = '';
+  render();
+});
+
+$('relevar').addEventListener('click', async () => {
+  try {
+    const frames = await chrome.scripting.executeScript({
+      target: { tabId: tabMarangatu.id, allFrames: true },
+      func: relevarFormulario,
+    });
+    const listado = {
+      generado: new Date().toISOString(),
+      frames: frames.map(({ result }) => result).filter((r) => r && r.campos.length),
+    };
+    $('relevamientoTexto').value = JSON.stringify(listado, null, 2);
+    $('relevamiento').hidden = false;
+  } catch (err) {
+    $('relevamientoTexto').value = 'No se pudo relevar: ' + err.message;
+    $('relevamiento').hidden = false;
+  }
+});
+
+$('copiarRelevamiento').addEventListener('click', async () => {
+  await navigator.clipboard.writeText($('relevamientoTexto').value);
+  $('copiarRelevamiento').textContent = 'Copiado';
+});
+
+init();

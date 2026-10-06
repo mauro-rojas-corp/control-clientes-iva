@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import { api } from '../api';
+import { sendIvaToMarangatu } from '../marangatu';
 import {
   ESTADOS,
+  casillasFormulario120,
+  casillasTexto,
   IVA_DEFAULT_NUEVO,
   LISTS,
   LIST_BY,
@@ -88,6 +91,7 @@ export default function IvaEditor({
   const [notas, setNotas] = useState(cliente.notas || '');
   const [wa, setWa] = useState(cliente.wa || '');
   const [focusTarget, setFocusTarget] = useState(null);
+  const [marangatuOpen, setMarangatuOpen] = useState(false);
   const rootRef = useRef(null);
   const fichaRef = useRef(null);
 
@@ -495,6 +499,9 @@ export default function IvaEditor({
             >
               Libro de compras y ventas (PDF)
             </button>
+            <button type="button" className="iva-btn" onClick={() => setMarangatuOpen(true)}>
+              Copiar a Marangatu
+            </button>
             <button
               type="button"
               className="iva-btn"
@@ -524,6 +531,112 @@ export default function IvaEditor({
           </div>
           <div className="hint">Así ve el cliente la ficha. El color del encabezado corresponde a su día de vencimiento.</div>
         </aside>
+      </div>
+
+      {marangatuOpen && (
+        <MarangatuModal ctx={fichaCtx} draft={draft} onClose={() => setMarangatuOpen(false)} toast={toast} />
+      )}
+    </div>
+  );
+}
+
+// Revisión de las casillas antes de mandarlas a la extensión, que después
+// las escribe en el Formulario 120 de Marangatu. La presentación la confirma
+// siempre la persona: la extensión nunca pulsa "Presentar".
+function MarangatuModal({ ctx, draft, onClose, toast }) {
+  const casillas = useMemo(() => casillasFormulario120(ctx, draft), [ctx, draft]);
+  const [soloConImporte, setSoloConImporte] = useState(true);
+  const [status, setStatus] = useState('idle'); // idle | sending | sent | no-extension
+  const visibles = soloConImporte ? casillas.filter((c) => c.valor) : casillas;
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(casillasTexto(ctx, draft));
+      toast('Lista de casillas copiada');
+    } catch {
+      toast('No se pudo copiar');
+    }
+  };
+
+  const enviar = async () => {
+    setStatus('sending');
+    const resp = await sendIvaToMarangatu({
+      ruc: ctx.cliente.ruc,
+      nombre: ctx.cliente.nombre,
+      periodo: ctx.periodo,
+      casillas,
+      credentials: ctx.cliente.marangatu,
+    });
+    if (resp.ok) setStatus('sent');
+    else if (resp.error === 'NO_EXTENSION') setStatus('no-extension');
+    else {
+      setStatus('idle');
+      toast('La extensión rechazó el envío: ' + resp.error);
+    }
+  };
+
+  return (
+    <div className="iva-modal-backdrop" onClick={onClose}>
+      <div className="iva-modal" role="dialog" aria-modal="true" aria-labelledby="iva-mg-title" onClick={(e) => e.stopPropagation()}>
+        <div className="iva-modal-head">
+          <div>
+            <h2 id="iva-mg-title">Copiar a Marangatu</h2>
+            <p className="sub">Formulario 120 · {perLabel(ctx.periodo)} · {ctx.cliente.nombre}</p>
+          </div>
+          <button type="button" className="iva-iconbtn" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
+        </div>
+
+        {status === 'sent' ? (
+          <div className="iva-modal-body">
+            <ol className="iva-steps">
+              <li>{ctx.cliente.marangatu ? 'Se abrió Marangatu e inicia sesión con la clave del cliente.' : 'Se abrió Marangatu: iniciá sesión con la clave del cliente.'}</li>
+              <li>Entrá al <b>Formulario 120</b> del período <b>{perLabel(ctx.periodo)}</b>.</li>
+              <li>Tocá el ícono de la extensión <b>Ekuatia Login</b> → <b>Completar formulario</b>.</li>
+              <li>Revisá cada casilla marcada en amarillo y presentá vos la declaración.</li>
+            </ol>
+            <p className="hint">Los datos quedan en la extensión 30 minutos y se borran al cerrar el navegador.</p>
+          </div>
+        ) : (
+          <div className="iva-modal-body">
+            <label className="iva-chk sm">
+              <input type="checkbox" checked={soloConImporte} onChange={(e) => setSoloConImporte(e.target.checked)} />
+              <span>Mostrar sólo casillas con importe</span>
+            </label>
+            <div className="iva-tblw iva-modal-list">
+              <table className="iva-tbl">
+                <tbody>
+                  {visibles.map((c) => (
+                    <tr key={c.cas}><td className="cas">{c.cas}</td><td>{c.label}</td><td className="num">{gs(c.valor)}</td></tr>
+                  ))}
+                  {!visibles.length && <tr><td colSpan={3} className="sub">No hay casillas con importe todavía.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            {status === 'no-extension' && (
+              <div className="iva-error iva-modal-alert" role="alert">
+                No se encontró la extensión Ekuatia Login (o falta configurar su ID). Podés copiar la lista y cargarla a mano.
+              </div>
+            )}
+            <p className="hint">Revisá los importes antes de enviarlos. La extensión sólo completa los campos: la presentación la confirmás vos en Marangatu.</p>
+          </div>
+        )}
+
+        <div className="iva-modal-foot">
+          <button type="button" className="iva-btn" onClick={copiar}>Copiar lista</button>
+          {status === 'sent' ? (
+            <button type="button" className="iva-btn primary" onClick={onClose}>Listo</button>
+          ) : (
+            <button type="button" className="iva-btn primary" onClick={enviar} disabled={status === 'sending'}>
+              {status === 'sending' ? 'Enviando…' : 'Enviar a la extensión'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

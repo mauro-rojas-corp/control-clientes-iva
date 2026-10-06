@@ -1,10 +1,19 @@
 // Service worker del puente "Ekuatia Login".
 //
-// Atiende exclusivamente pedidos externos de Control Clientes. La app manda
-// { user, pass } por un canal en memoria; acá se abre el login de Marangatu y
-// se inyecta una sola vez. La extensión no persiste listas ni credenciales, y
-// éstas nunca se colocan en la URL, el historial ni el portapapeles.
+// Atiende exclusivamente pedidos externos de Control Clientes:
+//  - APP_AUTO_LOGIN: la app manda { user, pass }; se abre el login de
+//    Marangatu y se inyecta una sola vez.
+//  - APP_IVA_PREPARE: la app manda las casillas del Formulario 120 de un
+//    cliente. Se guardan en chrome.storage.session (memoria del navegador,
+//    se borra al cerrarlo) con vencimiento, hasta que desde el popup se
+//    pulsa "Completar formulario". Si vienen credenciales, además abre el
+//    login como APP_AUTO_LOGIN.
+// Las credenciales nunca se guardan, ni se colocan en la URL, el historial
+// o el portapapeles.
 const LOGIN_URL = 'https://marangatu.set.gov.py/eset/login';
+const IVA_STORAGE_KEY = 'ivaPendiente';
+const IVA_TTL_MS = 30 * 60 * 1000;
+const MAX_CASILLAS = 120;
 
 // El manifest de Chrome no permite restringir un patrón por puerto. Por eso
 // allí se declara localhost y acá se exige el origen completo. Cuando exista
@@ -12,7 +21,7 @@ const LOGIN_URL = 'https://marangatu.set.gov.py/eset/login';
 const ALLOWED_APP_ORIGINS = new Set(['http://localhost:3000']);
 
 chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
-  if (!msg || msg.action !== 'APP_AUTO_LOGIN') return false;
+  if (!msg || (msg.action !== 'APP_AUTO_LOGIN' && msg.action !== 'APP_IVA_PREPARE')) return false;
 
   const senderOrigin = getVerifiedSenderOrigin(sender);
   if (!senderOrigin || !ALLOWED_APP_ORIGINS.has(senderOrigin)) {
@@ -22,11 +31,57 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
 
   const user = String(msg.user || '').trim();
   const pass = String(msg.pass || '');
-  if (!user) {
-    sendResponse({ ok: false, error: 'sin usuario' });
+
+  if (msg.action === 'APP_AUTO_LOGIN') {
+    if (!user) {
+      sendResponse({ ok: false, error: 'sin usuario' });
+      return true;
+    }
+    abrirLogin(user, pass);
+    sendResponse({ ok: true });
     return true;
   }
 
+  // APP_IVA_PREPARE
+  const pendiente = validarIva(msg);
+  if (!pendiente) {
+    sendResponse({ ok: false, error: 'datos del formulario inválidos' });
+    return true;
+  }
+  chrome.storage.session.set({ [IVA_STORAGE_KEY]: pendiente }, () => {
+    if (chrome.runtime.lastError) {
+      sendResponse({ ok: false, error: 'no se pudieron guardar los datos' });
+      return;
+    }
+    if (user) abrirLogin(user, pass);
+    else chrome.tabs.create({ url: LOGIN_URL });
+    sendResponse({ ok: true });
+  });
+  return true;
+});
+
+// Sólo números: casilla (1 a 4 dígitos) e importe entero en guaraníes.
+function validarIva(msg) {
+  const periodo = String(msg.periodo || '');
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) return null;
+  if (!Array.isArray(msg.casillas) || !msg.casillas.length || msg.casillas.length > MAX_CASILLAS) return null;
+  const casillas = [];
+  for (const c of msg.casillas) {
+    const cas = String(c && c.cas);
+    const valor = Number(c && c.valor);
+    if (!/^\d{1,4}$/.test(cas) || !Number.isFinite(valor) || !Number.isInteger(valor)) return null;
+    casillas.push({ cas, valor });
+  }
+  return {
+    ruc: String(msg.ruc || '').replace(/\D/g, '').slice(0, 12),
+    nombre: String(msg.nombre || '').slice(0, 120),
+    periodo,
+    casillas,
+    expiresAt: Date.now() + IVA_TTL_MS,
+  };
+}
+
+function abrirLogin(user, pass) {
   chrome.tabs.create({ url: LOGIN_URL }, (tab) => {
     const tabId = tab.id;
 
@@ -50,10 +105,7 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
     };
     chrome.tabs.onUpdated.addListener(onUpdated);
   });
-
-  sendResponse({ ok: true });
-  return true;
-});
+}
 
 // Chrome informa tanto el origen como la URL de la página remitente. Ambos
 // valores deben existir y coincidir: no se acepta un fallback permisivo cuando

@@ -50,6 +50,20 @@ Estado de referencia: autenticación individual y configuración inicial de PIN 
   libro de compras y ventas, PDF del período, y que `USUARIO` no pueda
   cambiar colores/feriados/mora.
 
+## Copiar el IVA al Formulario 120 de Marangatu
+
+- [x] Botón **Copiar a Marangatu** en la ficha IVA, modal de revisión y envío
+  a la extensión (`APP_IVA_PREPARE`); extensión con **Completar formulario**
+  y **Relevar formulario** (v1.4).
+- [ ] Relevar el Formulario 120 real (sin datos) y completar `MAPA_CASILLAS`
+  y `FORMATO_IMPORTE` en `Extension/formulario120.js`.
+- [ ] Confirmar contra el formulario real qué casillas se cargan a mano y
+  cuáles calcula DNIT (`casillasFormulario120` en `src/iva/ivaCore.js` es
+  provisoria; el Rubro 6 no tiene casilla asignada).
+- [ ] Evaluar la navegación automática login → Formulario 120 del período
+  (depende del menú de Marangatu).
+- [ ] Agregar el origen de la app publicada a la extensión (ver su README).
+
 ## Aplicación Android
 
 - [ ] Incrementar `versionCode` y `versionName` antes de distribuir una actualización.

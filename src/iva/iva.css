@@ -425,3 +425,48 @@
 @media (prefers-reduced-motion: reduce) {
   .iva-toast { transition: none; }
 }
+
+/* Modal "Copiar a Marangatu" */
+.iva-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 22, 35, 0.55);
+}
+.iva-modal {
+  width: min(640px, 100%);
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  background: var(--rx-surface);
+  color: var(--rx-ink);
+  border: 1px solid var(--rx-line);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+.iva-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px 10px;
+  border-bottom: 1px solid var(--rx-line);
+}
+.iva-modal-head h2 { margin: 0; font-size: var(--rx-fs-lg); }
+.iva-modal-head .sub { margin: 2px 0 0; }
+.iva-modal-body { padding: 14px 18px; overflow: auto; }
+.iva-modal-list { max-height: 46vh; overflow: auto; margin-top: 8px; }
+.iva-modal-alert { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--rx-red-soft); }
+.iva-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--rx-line);
+}
+.iva-chk.sm { padding: 8px 12px; font-size: var(--rx-fs-xs); margin: 0; }
+.iva-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: var(--rx-fs-sm); }

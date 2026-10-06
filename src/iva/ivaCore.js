@@ -247,6 +247,47 @@ export function waLink(ctx, l) {
   return 'https://wa.me/' + p + '?text=' + encodeURIComponent(waText(ctx, l));
 }
 
+// Casillas del Formulario 120 (v4) con su importe, para copiarlas a
+// Marangatu. Las listas con dos casillas ("10 / 22") van a base / impuesto;
+// las que comparten casilla (38, 42) se suman. El Rubro 6 no tiene número de
+// casilla propio en esta app y por eso no se incluye. Provisorio hasta
+// relevar el formulario real: puede faltar alguna casilla que DNIT calcula.
+export function casillasFormulario120(ctx, l) {
+  const k = calc(l, ctx);
+  const out = new Map();
+  const add = (cas, value, label) => {
+    const prev = out.get(cas);
+    out.set(cas, { cas, valor: (prev ? prev.valor : 0) + Math.round(value || 0), label: prev ? prev.label : label });
+  };
+  LISTS.forEach((d) => {
+    const c = k.C[d.k];
+    const pair = d.cas.match(/^(\d+)\s*\/\s*(\d+)$/);
+    if (pair) {
+      add(pair[1], c.base, d.t + ' (monto imponible)');
+      add(pair[2], c.iva, d.t + ' (impuesto)');
+    }
+  });
+  add('12', k.C.vex.base - k.C.ncvex.base, 'Ventas exoneradas o no alcanzadas (neto de NC)');
+  add('17', k.C.nccex.base, 'NC recibidas por compras exoneradas o no alcanzadas');
+  add('18', k.cas.ventasBase, 'Total ventas (monto imponible)');
+  add('43', k.cas[45], 'Total IVA crédito');
+  [
+    [44, 'IVA débito'], [45, 'IVA crédito'], [46, 'Saldo anterior de IVA'], [166, 'Saldo a favor del contribuyente'],
+    [167, 'Saldo a favor remitido al Fisco'], [47, 'Saldo técnico trasladable'], [48, 'Saldo a favor del Fisco'],
+    [49, 'IVA crédito por exportación'], [168, 'Deducción por personas con discapacidad'], [50, 'Impuesto determinado'],
+    [55, 'Impuesto determinado (Rubro 5)'], [51, 'Saldo anterior de retenciones'], [52, 'Retenciones del período'],
+    [169, 'Percepciones'], [56, 'Multa por contravención'], [53, 'Total pagos a cuenta'], [57, 'Total impuesto y multa'],
+    [58, 'Saldo a pagar al Fisco'], [54, 'Saldo de retenciones trasladable'],
+  ].forEach(([cas, label]) => add(String(cas), k.cas[cas], label));
+  return [...out.values()].sort((a, b) => Number(a.cas) - Number(b.cas));
+}
+
+export function casillasTexto(ctx, l) {
+  const lines = ['Formulario 120 - ' + perLabel(ctx.periodo), ctx.cliente.nombre + ' - RUC ' + rucTexto(ctx.cliente), ''];
+  casillasFormulario120(ctx, l).forEach((c) => lines.push('Casilla ' + c.cas + ': ' + gs(c.valor) + '  (' + c.label + ')'));
+  return lines.join('\n');
+}
+
 // Resumen legible que se guarda en las primeras columnas de la hoja del período.
 export function resumenHoja(ctx, l) {
   const k = calc(l, ctx);

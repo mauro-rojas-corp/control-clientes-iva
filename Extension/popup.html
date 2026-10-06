@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Ekuatia Login</title>
+<style>
+  :root { color-scheme: light dark; --line: #d2d3d6; --muted: #5a5e62; --brand: #27658d; --warn: #9a5b00; --ok: #15906f; --bad: #b42318; }
+  @media (prefers-color-scheme: dark) { :root { --line: #3d515d; --muted: #bcbec3; --brand: #6fa5c3; --warn: #f1b65c; --ok: #54d5aa; --bad: #f58a83; } }
+  body { margin: 0; width: 340px; font: 13px/1.45 system-ui, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  header img { width: 22px; height: 22px; border-radius: 4px; }
+  header strong { font-size: 14px; }
+  section { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  p { margin: 4px 0; }
+  .muted { color: var(--muted); }
+  .warn { color: var(--warn); }
+  .ok { color: var(--ok); }
+  .bad { color: var(--bad); }
+  button { font: inherit; width: 100%; margin-top: 8px; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--line); background: transparent; color: inherit; cursor: pointer; font-weight: 600; }
+  button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  textarea { width: 100%; box-sizing: border-box; height: 120px; margin-top: 8px; font: 11px/1.3 ui-monospace, Consolas, monospace; }
+  #resultado:empty { display: none; }
+</style>
+</head>
+<body>
+  <header><img src="logo.png" alt=""><strong>Ekuatia Login</strong></header>
+
+  <section>
+    <h2>Formulario 120</h2>
+    <div id="pendiente" class="muted">Cargando…</div>
+    <button id="completar" class="primary" disabled>Completar formulario</button>
+    <button id="descartar" disabled>Descartar datos</button>
+  </section>
+
+  <section id="resultado"></section>
+
+  <section>
+    <h2>Relevamiento</h2>
+    <p class="muted">Abrí el Formulario 120 en Marangatu (sin datos de clientes) y generá el listado de campos para configurar la carga automática. No incluye valores ni contraseñas.</p>
+    <button id="relevar">Relevar formulario</button>
+    <div id="relevamiento" hidden>
+      <textarea id="relevamientoTexto" readonly></textarea>
+      <button id="copiarRelevamiento">Copiar listado</button>
+    </div>
+  </section>
+
+  <script src="formulario120.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

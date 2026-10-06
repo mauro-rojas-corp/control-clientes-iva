@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { api } from '../api';
 import { useClientsData, useClientsMeta } from '../context/ClientsContext';
-import { compactHeader } from '../utils';
+import { compactHeader, findClaveMarangatuColumn } from '../utils';
 import {
   DEFAULT_COLORS,
   DIAS_C,
@@ -102,6 +102,7 @@ export default function IvaModule({ withDesktopSidebar = false, initialRuc = nul
   const clientes = useMemo(() => {
     const dvKey = findDvColumn(headers || []);
     const waKey = findWhatsappColumn(headers || []);
+    const claveKey = findClaveMarangatuColumn(headers || []);
     const out = {};
     (assignedRows || []).forEach((row) => {
       if (!rucKey) return;
@@ -116,6 +117,11 @@ export default function IvaModule({ withDesktopSidebar = false, initialRuc = nul
         wa: extra.wa || (waKey ? String(row[waKey] || '').trim() : ''),
         notas: extra.notas || '',
         encargado: String((encargadoCol && row[encargadoCol]) || row._assignedUser || ''),
+        // Login de Marangatu (RUC tal cual la planilla + Clave MH), igual
+        // que el botón de la lista de clientes. Sólo en memoria.
+        marangatu: claveKey && String(row[claveKey] ?? '').trim()
+          ? { user: String(row[rucKey] ?? '').trim(), pass: String(row[claveKey]).trim() }
+          : null,
       };
     });
     return out;
