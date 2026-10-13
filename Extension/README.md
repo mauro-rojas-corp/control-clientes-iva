@@ -181,7 +181,34 @@ debe agregarse un comodín de dominios ni un puerto ficticio.
   formularios; se borra al terminar o cancelar y vence a los 30 min).
 - `content_scripts` (`descargaContent.js`): corre sólo en
   `https://marangatu.set.gov.py/*` y sólo actúa si hay una descarga en curso.
-- `host_permissions`: limita la inyección a `https://marangatu.set.gov.py/*`.
+- `host_permissions`: limita la inyección a `https://marangatu.set.gov.py/*`
+  y, desde la 2.2, a `https://web.whatsapp.com/*` (sólo para pegar la ficha;
+  ver abajo).
+
+## Envío de la ficha por WhatsApp Web (v2.2)
+
+Desde la ficha IVA, **Enviar por WhatsApp** (con "WhatsApp Web" elegido)
+manda a la extensión el número del cliente, un mensaje corto y la imagen de
+la ficha (`APP_WA_ENVIAR`, sólo desde los orígenes autorizados). La
+extensión (`whatsappBg.js`):
+
+1. Abre WhatsApp Web en el chat de ese número con el mensaje escrito, o
+   reutiliza la pestaña de WhatsApp Web si ya hay una abierta.
+2. Cuando carga, inyecta **en esa pestaña** una función que espera el cuadro
+   de mensaje (hasta 2 minutos, por si hay que escanear el QR) y pega la
+   imagen como un Ctrl+V. Muestra un aviso arriba de la página.
+3. **Nunca envía:** la persona revisa la vista previa y toca Enviar. Enviar
+   mensajes automáticamente va contra las condiciones de uso de WhatsApp.
+
+No hay content script permanente en WhatsApp Web: no se leen chats ni
+mensajes. El pedido (número, texto e imagen) vive en
+`chrome.storage.session` y se borra al pegar o a los 3 minutos. Sólo se
+aceptan teléfonos de 8 a 15 dígitos e imágenes PNG.
+
+Si WhatsApp cambia su página y el pegado no funciona, el aviso lo dice y la
+imagen igual queda en el portapapeles (la app la copia antes de abrir el
+chat): se pega con Ctrl+V. Con la app de escritorio de WhatsApp no hay pegado
+automático (la extensión no puede actuar sobre otros programas).
 
 ## Seguridad
 

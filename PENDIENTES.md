@@ -218,3 +218,11 @@ quedó fuera de la aplicación aunque su CSS siga en `styles.css`.
   ruta si la página no es la esperada (2 reintentos y pausa con aviso), con la
   descarga de IVA migrada y la versión actual como respaldo.
 
+
+## Envío de la ficha por WhatsApp Web (extensión v2.2)
+
+- [ ] Recargar la extensión (aceptar el permiso nuevo de `web.whatsapp.com`)
+  y probar **Enviar por WhatsApp** con WhatsApp Web vinculado: que se abra el
+  chat del número y la imagen aparezca sola en la vista previa.
+- [ ] Si WhatsApp Web no acepta el pegado simulado, revisar los selectores
+  del cuadro de mensaje en `Extension/whatsappBg.js` (mientras tanto, Ctrl+V).

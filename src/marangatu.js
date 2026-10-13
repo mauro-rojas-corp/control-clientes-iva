@@ -183,3 +183,10 @@ export function suscribirDescargaIva(callback) {
     try { puerto?.disconnect(); } catch { /* ya cerrado */ }
   };
 }
+
+// Envía la ficha por WhatsApp Web a través de la extensión: abre el chat del
+// número con el texto escrito y pega la imagen. Quien envía es la persona.
+// imagen: data URL PNG. Resuelve { ok } o { ok: false, error } (NO_EXTENSION).
+export function enviarWhatsappExtension({ telefono, texto, imagen, nombre }) {
+  return enviarAExtension({ action: 'APP_WA_ENVIAR', telefono, texto, imagen, nombre });
+}

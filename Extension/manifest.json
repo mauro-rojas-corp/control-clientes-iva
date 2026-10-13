@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Ekuatia Login",
-  "version": "2.1",
-  "description": "Puente de acceso a Marangatu desde Control Clientes: login, carga del Formulario 120 y descarga de formularios IVA",
+  "version": "2.2",
+  "description": "Puente de Control Clientes: login y Formulario 120 en Marangatu, descarga de formularios IVA y envío de la ficha por WhatsApp Web",
   "permissions": [
     "scripting",
     "tabs",
     "storage"
   ],
   "host_permissions": [
-    "https://marangatu.set.gov.py/*"
+    "https://marangatu.set.gov.py/*",
+    "https://web.whatsapp.com/*"
   ],
   "background": {
     "service_worker": "background.js"

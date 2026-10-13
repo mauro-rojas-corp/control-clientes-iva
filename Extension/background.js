@@ -15,7 +15,7 @@
 // descargaBg.js, que comparte el ámbito global de este archivo. La pestaña de
 // trabajo, el cierre de sesión y el estado compartido con la app viven en
 // sesionBg.js.
-importScripts('formulario120.js', 'sesionBg.js', 'descargaBg.js');
+importScripts('formulario120.js', 'sesionBg.js', 'descargaBg.js', 'whatsappBg.js');
 
 const LOGIN_URL = 'https://marangatu.set.gov.py/eset/login';
 const MARANGATU_HOST = 'marangatu.set.gov.py';

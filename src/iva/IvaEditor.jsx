@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
 import { api } from '../api';
-import { enviarContextoApp, mensajeDeError, sendIvaToMarangatu } from '../marangatu';
+import { enviarContextoApp, enviarWhatsappExtension, mensajeDeError, sendIvaToMarangatu } from '../marangatu';
 import DescargaFormularios from './DescargaFormularios';
 import {
   ESTADOS,
@@ -32,6 +32,7 @@ import {
   vencDe,
   waChatUrl,
   waMensaje,
+  waTelefono,
   waText,
 } from './ivaCore';
 
@@ -255,6 +256,30 @@ export default function IvaEditor({
         a.click();
         a.remove();
       } catch { /* sin imagen: igual se abre el chat */ }
+    }
+
+    // Con la extensión y WhatsApp Web, la imagen se pega sola en el chat.
+    if (waDestino === 'web') {
+      try {
+        const blob = await blobPromise;
+        const imagen = await new Promise((resolve, reject) => {
+          const lector = new FileReader();
+          lector.onload = () => resolve(lector.result);
+          lector.onerror = reject;
+          lector.readAsDataURL(blob);
+        });
+        const resp = await enviarWhatsappExtension({
+          telefono: waTelefono(fctx.cliente),
+          texto: waMensaje(fctx, draft),
+          imagen,
+          nombre,
+        });
+        if (resp.ok) {
+          toast('Se abrió WhatsApp Web: la imagen se pega sola. Revisá y tocá Enviar.');
+          markSent();
+          return;
+        }
+      } catch { /* sigue con el chat común */ }
     }
 
     const url = waChatUrl(fctx, draft, waDestino);
