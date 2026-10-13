@@ -153,15 +153,22 @@ Si el formulario está dividido en pasos o pestañas, relevá cada paso.
 
 ## Origen autorizado
 
-Durante el desarrollo, la extensión admite mensajes solamente desde
-`http://localhost:3000`. El manifest declara `http://localhost/*` porque los
-patrones de Chrome no aceptan puertos, pero el service worker vuelve a validar
-el origen completo y rechaza cualquier otro puerto.
+La extensión admite mensajes sólo desde estos orígenes exactos:
 
-Antes de usar la app publicada (fuera de localhost) hay que agregar su origen
-exacto en `ALLOWED_APP_ORIGINS` (background.js) y en
-`externally_connectable.matches` (manifest.json). No debe agregarse un
-comodín de dominios ni un puerto ficticio.
+- `http://localhost:3000` (desarrollo). El manifest declara
+  `http://localhost/*` porque los patrones de Chrome no aceptan puertos, pero
+  el service worker vuelve a validar el origen completo y rechaza cualquier
+  otro puerto.
+- `https://control-clientes-iva.vercel.app` (app publicada en Vercel).
+
+Los deploys de vista previa de Vercel (un subdominio distinto en cada deploy)
+quedan afuera a propósito: la extensión sólo funciona desde la dirección de
+producción.
+
+Para sumar otro origen (por ejemplo un dominio propio) hay que agregarlo en
+`ALLOWED_APP_ORIGINS` (background.js) **y** en
+`externally_connectable.matches` (manifest.json), y recargar la extensión. No
+debe agregarse un comodín de dominios ni un puerto ficticio.
 
 ## Permisos
 

@@ -24,10 +24,15 @@ const IVA_STORAGE_KEY = 'ivaPendiente';
 const IVA_TTL_MS = 30 * 60 * 1000;
 const MAX_CASILLAS = 120;
 
-// El manifest de Chrome no permite restringir un patrón por puerto. Por eso
-// allí se declara localhost y acá se exige el origen completo. Cuando exista
-// el puente de la app compilada, se agregará su origen 127.0.0.1:PUERTO exacto.
-const ALLOWED_APP_ORIGINS = new Set(['http://localhost:3000']);
+// Orígenes exactos de Control Clientes que pueden hablarle a la extensión:
+// el servidor de desarrollo y la app publicada en Vercel. El manifest de
+// Chrome no permite restringir un patrón por puerto; por eso allí se declara
+// localhost y acá se exige el origen completo. Los deploys de vista previa de
+// Vercel (otro subdominio en cada deploy) no se agregan a propósito.
+const ALLOWED_APP_ORIGINS = new Set([
+  'http://localhost:3000',
+  'https://control-clientes-iva.vercel.app',
+]);
 
 chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
   if (!msg || (msg.action !== 'APP_AUTO_LOGIN' && msg.action !== 'APP_IVA_PREPARE')) return false;

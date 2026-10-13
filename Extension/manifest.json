@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ekuatia Login",
-  "version": "2.0",
+  "version": "2.1",
   "description": "Puente de acceso a Marangatu desde Control Clientes: login, carga del Formulario 120 y descarga de formularios IVA",
   "permissions": [
     "scripting",
@@ -24,7 +24,8 @@
   },
   "externally_connectable": {
     "matches": [
-      "http://localhost/*"
+      "http://localhost/*",
+      "https://control-clientes-iva.vercel.app/*"
     ]
   },
   "content_scripts": [

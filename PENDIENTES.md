@@ -203,7 +203,7 @@ quedó fuera de la aplicación aunque su CSS siga en `styles.css`.
 - [ ] Revisar cómo se comporta el diálogo de impresión: ¿recuerda el destino
   «Guardar como PDF» y la carpeta? Si pide confirmación en cada formulario,
   evaluar si alcanza o si hace falta otra vía.
-- [ ] Al publicar la app, agregar su origen exacto en `ALLOWED_APP_ORIGINS` y
+- [x] Al publicar la app, agregar su origen exacto en `ALLOWED_APP_ORIGINS` y
   `externally_connectable` (vale también para la descarga y el puerto).
 
 ## Navegación estandarizada en Marangatu
