@@ -179,7 +179,7 @@ const ClientRow = memo(function ClientRow({
             aria-label="Abrir Marangatu con las credenciales de este cliente"
             onClick={(event) => {
               event.stopPropagation();
-              openMarangatuLogin(marangatu);
+              openMarangatuLogin(marangatu, (m) => window.alert(m));
             }}
           >
             <img src="/marangatu.svg" alt="" aria-hidden="true" />

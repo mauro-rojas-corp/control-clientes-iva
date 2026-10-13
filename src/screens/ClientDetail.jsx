@@ -253,7 +253,7 @@ export default function ClientDetail({
                   className="marangatu-btn"
                   title={`Abrir Marangatu con el RUC ${marangatuCredentials.user}`}
                   aria-label="Abrir Marangatu con las credenciales de este cliente"
-                  onClick={() => openMarangatuLogin(marangatuCredentials)}
+                  onClick={() => openMarangatuLogin(marangatuCredentials, (m) => window.alert(m))}
                 >
                   <img className="marangatu-logo" src="/marangatu.svg" alt="" aria-hidden="true" />
                 </button>

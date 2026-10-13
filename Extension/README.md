@@ -1,6 +1,6 @@
 # Ekuatia Login (extensión Chrome/Edge)
 
-Puente exclusivo entre **Control Clientes** y Marangatu. Hace dos cosas:
+Puente exclusivo entre **Control Clientes** y Marangatu. Hace tres cosas:
 
 1. **Login:** al pulsar el botón Marangatu de un cliente, Control Clientes
    envía el `R.U.C.` y la `Clave MH` por mensajería externa de Chromium. El
@@ -12,6 +12,14 @@ Puente exclusivo entre **Control Clientes** y Marangatu. Hace dos cosas:
    en sus campos y las marca en amarillo. **La extensión nunca presenta la
    declaración:** la revisión y el botón "Presentar" son siempre de la
    persona.
+3. **Descarga de formularios IVA (v2.0):** baja como PDF las declaraciones de
+   IVA ya presentadas de un cliente. Se puede pedir desde la ficha IVA de la
+   app (**Descargar formularios**, con el avance en vivo) o desde el ícono de
+   la extensión → **Descargar formularios IVA**, con la sesión del cliente ya
+   iniciada. Recorre Consultas → Visión Integral → Búsqueda → 211 IVA General,
+   lee la tabla de DDJJ y, por cada período pedido, abre el formulario en una
+   pestaña propia y abre el diálogo de impresión: hay que elegir **Guardar como
+   PDF**. Los archivos se llaman `{PREFIJO}_{AÑO}_{MES}_{RUC}.pdf`.
 
 ## Instalar
 
@@ -35,6 +43,95 @@ esa misma pantalla.
 
 El ID no debe escribirse directamente en el código fuente. En una extensión
 cargada de forma descomprimida puede variar entre computadoras.
+
+## Reconocimiento de páginas y relevamiento de navegación
+
+Marangatu avanza por validaciones: algunos menús cambian la pantalla dentro de
+la misma ventana y otros abren una ventana nueva. Para que las tareas (descargar
+IVA, cargar el Formulario 120) puedan orientarse y retomar, hay dos piezas:
+
+- **Reconocimiento (`paginas.js`):** `identificarPagina()` dice en qué pantalla
+  está la pestaña (`INICIO`, `VISION_INTEGRAL`, `VISION_RESULTADO`, `LISTA_DDJJ`,
+  `FORMULARIO_DDJJ`, `PRESENTAR_DECLARACION`, `FORMULARIO_120`, `LOGIN`…) según
+  la ruta y marcadores de la página. El popup lo muestra en **Página actual**.
+  Las reglas de `INICIO` (la página madre) son provisorias hasta relevar el portal.
+- **Relevamiento (`relevamientoNav.js` + popup):** **Iniciar registro**, navegá el
+  recorrido normal y **Copiar listado**. Registra la estructura de cada pantalla
+  (ruta sin valores de consulta, menús, botones, tablas, nombres de campos), los
+  clics, los cambios dentro de la misma ventana y si una página la abrió otra
+  ventana; cada foto incluye la página reconocida. No registra valores de campos
+  y omite el texto dentro de tablas, pero **revisá el listado antes de
+  compartirlo**: un botón o enlace fuera de una tabla podría llevar un nombre.
+
+Con ese listado se arma el mapa de rutas (cómo se pasa de una pantalla a otra y
+si abre ventana nueva) y se ajusta el catálogo. El relevamiento sólo actúa
+mientras está activado.
+
+## Descarga de formularios IVA
+
+- **Archivos:** `descargaContent.js` es el content script de "Marangatu Pro"
+  (M-dulo-EXTIVA) con su máquina de etapas, guardadas en `chrome.storage.local`
+  bajo `eku_descarga_etapa`: cada página de Marangatu retoma la etapa pendiente
+  al cargar (Consultas → Visión Integral → Búsqueda → 211 → tabla de DDJJ →
+  imprimir cada formulario). Sin etapa pendiente no hace nada. `descargaBg.js`
+  (service worker) recibe el pedido, abre el login, le manda el inicio al
+  content script, abre el formulario en otra pestaña cuando éste lo pide y
+  publica el avance. `background.js` sólo lo carga con `importScripts`.
+- **Mensajes de la app** (mismo control de origen que el resto del puente):
+  `APP_PING`, `APP_IVA_DESCARGAR` (`ruc`, `nombre`, `periodos` AAAA-MM o
+  `ultimos`, `prefijo`, `demora`, `user`/`pass` opcionales) y
+  `APP_DESCARGA_CANCELAR`. Además la app abre un puerto `eku-app` y recibe
+  `{ tipo: 'estado', estado }` en cada avance; si el service worker se duerme el
+  puerto se cierra y la app lo reabre.
+- **Estado:** un solo trabajo a la vez, en `chrome.storage.session` (se borra al
+  cerrar el navegador y vence a los 30 min sin avance). Cancelar o cerrar la
+  pestaña de Marangatu lo detiene.
+- **Límites:** hasta 24 períodos por pedido. El navegador no informa si se
+  guardó el PDF o se canceló el diálogo: al cerrarse el diálogo el formulario
+  se cuenta como hecho.
+- **Preferencias:** el popup recuerda sólo el prefijo y la demora entre
+  formularios en `chrome.storage.local`.
+
+## Sesión, pestaña única y panel en Marangatu
+
+- **Una sola pestaña de trabajo:** el login, el Formulario 120 y la descarga
+  reutilizan la pestaña de Marangatu que ya esté abierta (o crean una sola).
+  La app ya no abre ventanas propias salvo que la extensión no responda.
+- **Sesión limpia:** antes de entrar con un cliente se cierra la sesión que
+  hubiera (Marangatu comparte la sesión entre pestañas) y se espera la pantalla
+  de acceso. Si no se puede cerrar, se avisa y no se sigue.
+- **Nunca se traba por la sesión previa:** desde la app, si no se puede cerrar
+  la sesión que había (no se reconoce «Salir», o la pestaña se abrió antes de
+  cargar la extensión: en ese caso se recarga sola) se sigue con esa sesión y se
+  avisa. En ese caso, y si se entró a mano, un RUC distinto detiene la descarga;
+  si la extensión entró con la clave del cliente, sólo avisa.
+- **Recorrido real (relevamiento del 12/10):** inicio `/eset/` → «CONSULTAS» →
+  «VISIÓN INTEGRAL DEL CONTRIBUYENTE» (ventana nueva, `mantenerAbmXsl.do`) →
+  Búsqueda → fila 211 (otra ventana nueva, `consultarTransacciones.do`) → cada
+  declaración (otra ventana, `consultarDDJJCompleta.do`). Por eso todas las
+  ventanas que abre la tarea (en cadena) son parte de ella; la pestaña de lista
+  pasa a ser la que informa los formularios encontrados.
+- **Sesión:** el encabezado muestra el NOMBRE del usuario (menú
+  `#navbarDropdownMenuLink`), no el RUC; «Cerrar sesión» está dentro de ese menú
+  y el panel lo abre para buscarlo.
+- **Un cliente a la vez:** con una tarea en curso, un segundo pedido responde
+  `TAREA_EN_CURSO` (o `DESCARGA_EN_CURSO`). Sólo la pestaña dueña de la descarga
+  actúa sobre su etapa (`ETAPA_PERMISO`): otra pestaña de Marangatu abierta a
+  mano no la ejecuta.
+- **RUC de la sesión:** al entrar desde la app, si la sesión es de otro RUC que
+  el pedido se detiene la descarga y se avisa en la app y en el panel. Desde el
+  popup sólo se avisa (un contador puede consultar clientes con su propia
+  sesión). Si no se logra leer ningún RUC no se bloquea nada.
+- **Panel flotante** (`panelContent.js`, Shadow DOM, se oculta al imprimir y no
+  aparece en el formulario presentado): muestra el cliente de la app, la sesión
+  y los RUC leídos, la pantalla actual y el avance de la tarea; permite cancelar
+  y cerrar la sesión, y al terminar ofrece «Cerrar sesión / Dejar abierta».
+- **App ↔ extensión:** la app informa el cliente abierto (`APP_CONTEXTO`) y
+  puede pedir `APP_CERRAR_SESION`; ambos lados reciben el mismo estado (tarea,
+  `contexto`, `sesion`, `aviso`) por el puerto `eku-app` y por `eku-panel`.
+- **Provisorio:** el control «Salir» y la ubicación del RUC en el encabezado se
+  buscan por heurística (enlaces `logout…`, textos «Salir», «Cerrar sesión»…).
+  Se ajustan con el relevamiento de navegación.
 
 ## Formulario 120: correspondencia de casillas
 
@@ -71,7 +168,12 @@ comodín de dominios ni un puerto ficticio.
 - `scripting`: inyecta el login y las casillas únicamente en Marangatu.
 - `tabs`: abre la página oficial, espera a que cargue y detecta si la
   pestaña activa es Marangatu.
-- `storage`: sólo `chrome.storage.session` para las casillas pendientes.
+- `storage`: `chrome.storage.session` para las casillas pendientes y la
+  descarga en curso; `chrome.storage.local` para el prefijo, la demora y la
+  etapa de la descarga en curso (RUC, nombre, períodos y enlaces de los
+  formularios; se borra al terminar o cancelar y vence a los 30 min).
+- `content_scripts` (`descargaContent.js`): corre sólo en
+  `https://marangatu.set.gov.py/*` y sólo actúa si hay una descarga en curso.
 - `host_permissions`: limita la inyección a `https://marangatu.set.gov.py/*`.
 
 ## Seguridad
@@ -83,8 +185,9 @@ comodín de dominios ni un puerto ficticio.
   que vive en la memoria del navegador (no en disco), se borra al cerrarlo y,
   además, vence a los 30 minutos. **Descartar datos** las elimina antes.
   Sólo se aceptan números (casilla e importe) y un período AAAA-MM válido.
-- La extensión no usa `localStorage`, `chrome.storage.local` ni archivos CSV,
-  y no conserva listas de clientes.
+- La extensión no usa `localStorage` ni archivos CSV y no conserva listas de
+  clientes. En `chrome.storage.local` guarda el prefijo, la demora y la etapa de
+  la descarga en curso (sin claves, y se borra al terminar o cancelar).
 - `externally_connectable.matches` no admite sandboxes ni dominios con comodín;
   además, el service worker exige que el origen declarado y la URL remitente
   coincidan con la lista interna de orígenes exactos.

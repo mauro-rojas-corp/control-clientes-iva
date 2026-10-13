@@ -192,3 +192,29 @@ quedó fuera de la aplicación aunque su CSS siga en `styles.css`.
 - [x] **Punto 4:** orígenes de la extensión restringidos a localhost.
 - [x] **Punto 5:** backup Android desactivado.
 - [x] **Punto 6:** archivo vacío eliminado.
+
+## Descarga de formularios IVA (extensión v2.0)
+
+- [ ] Recargar la extensión (`chrome://extensions` → Recargar) y probar con un
+  cliente real: desde la ficha IVA → **Descargar formularios** y desde el
+  popup de la extensión.
+- [ ] Confirmar en Marangatu que Consultas → Visión Integral → Búsqueda → 211
+  funciona con el portal actual (los selectores son del módulo original).
+- [ ] Revisar cómo se comporta el diálogo de impresión: ¿recuerda el destino
+  «Guardar como PDF» y la carpeta? Si pide confirmación en cada formulario,
+  evaluar si alcanza o si hace falta otra vía.
+- [ ] Al publicar la app, agregar su origen exacto en `ALLOWED_APP_ORIGINS` y
+  `externally_connectable` (vale también para la descarga y el puerto).
+
+## Navegación estandarizada en Marangatu
+
+- [ ] Correr el **relevamiento de navegación** en el portal real, con un cliente:
+  iniciar registro → inicio (marcar «madre») → Consultas → Visión Integral →
+  Búsqueda → 211 → lista de DDJJ → abrir un formulario → Presentar Declaración →
+  Formulario 120. Copiar el listado, revisarlo y pasarlo.
+- [ ] Con ese listado: confirmar la regla de `INICIO` (hoy provisoria), anotar
+  qué pasos abren ventana nueva y armar el mapa de rutas.
+- [ ] Fase 2 (después del mapa): navegador que vuelve a la madre y recalcula la
+  ruta si la página no es la esperada (2 reintentos y pausa con aviso), con la
+  descarga de IVA migrada y la versión actual como respaldo.
+

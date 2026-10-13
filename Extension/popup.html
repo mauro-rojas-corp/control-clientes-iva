@@ -22,10 +22,22 @@
   button:disabled { opacity: .5; cursor: default; }
   textarea { width: 100%; box-sizing: border-box; height: 120px; margin-top: 8px; font: 11px/1.3 ui-monospace, Consolas, monospace; }
   #resultado:empty { display: none; }
+  label { display: block; margin-top: 8px; font-weight: 600; }
+  label input, label select { display: block; width: 100%; box-sizing: border-box; margin-top: 3px; padding: 6px 8px; font: inherit; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; }
+  .fila { display: flex; gap: 8px; }
+  .fila > label { flex: 1; }
+  progress { width: 100%; height: 8px; margin-top: 6px; }
 </style>
 </head>
 <body>
   <header><img src="logo.png" alt=""><strong>Ekuatia Login</strong></header>
+
+  <section>
+    <h2>Página actual</h2>
+    <div id="pagEstado" class="muted">Reconociendo…</div>
+    <p id="pagDetalle" class="muted" hidden></p>
+    <button id="pagReconocer">Reconocer de nuevo</button>
+  </section>
 
   <section>
     <h2>Formulario 120</h2>
@@ -38,6 +50,52 @@
   <section id="resultado"></section>
 
   <section>
+    <h2>Descargar formularios IVA</h2>
+    <div id="descEstado" class="muted">Sin descarga en curso.</div>
+    <progress id="descProgreso" max="1" value="0" hidden></progress>
+    <div id="descForm">
+      <label>Períodos
+        <select id="descModo">
+          <option value="1">Último mes</option>
+          <option value="3">Últimos 3 meses</option>
+          <option value="6" selected>Últimos 6 meses</option>
+          <option value="12">Últimos 12 meses</option>
+          <option value="rango">Rango de meses…</option>
+        </select>
+      </label>
+      <div id="descRango" class="fila" hidden>
+        <label>Desde <input type="month" id="descDesde"></label>
+        <label>Hasta <input type="month" id="descHasta"></label>
+      </div>
+      <label>RUC del cliente (para el nombre del archivo, opcional)
+        <input id="descRuc" inputmode="numeric" maxlength="14" placeholder="80012345">
+      </label>
+      <div class="fila">
+        <label>Prefijo <input id="descPrefijo" maxlength="12" value="IVA"></label>
+        <label>Demora (s) <input id="descDemora" type="number" min="1" max="10" value="4"></label>
+      </div>
+    </div>
+    <button id="descIniciar" class="primary" disabled>Descargar formularios</button>
+    <button id="descCancelar" disabled>Cancelar descarga</button>
+    <p class="muted">Abrí esta ventana con la sesión del cliente iniciada en Marangatu. Por cada formulario se abre el diálogo de impresión: elegí <b>Guardar como PDF</b>.</p>
+  </section>
+
+  <section>
+    <h2>Relevamiento de navegación</h2>
+    <p class="muted">Mapea las pantallas de Marangatu: iniciá el registro, navegá normalmente por el recorrido y marcá las páginas clave (por ejemplo «madre»). Registra la estructura (menús, botones, rutas) y nunca valores de campos; el texto dentro de tablas se omite. Revisá el listado antes de compartirlo: un botón o enlace fuera de una tabla podría llevar un nombre.</p>
+    <div id="relEstado" class="muted">Registro detenido.</div>
+    <button id="relIniciar" class="primary">Iniciar registro</button>
+    <button id="relDetener" disabled>Detener registro</button>
+    <label>Marcar la página actual como…
+      <input id="relMarca" maxlength="40" placeholder="madre, vision-integral, lista-ddjj">
+    </label>
+    <button id="relMarcar" disabled>Marcar página actual</button>
+    <button id="relCopiar">Copiar listado</button>
+    <button id="relBorrar">Borrar registro</button>
+    <textarea id="relTexto" readonly hidden></textarea>
+  </section>
+
+  <section>
     <h2>Relevamiento</h2>
     <p class="muted">Abrí el Formulario 120 en Marangatu (sin datos de clientes) y generá el listado de campos para configurar la carga automática. No incluye valores ni contraseñas.</p>
     <button id="relevar">Relevar formulario</button>
@@ -48,6 +106,10 @@
   </section>
 
   <script src="formulario120.js"></script>
+  <script src="paginas.js"></script>
   <script src="popup.js"></script>
+  <script src="popupDescarga.js"></script>
+  <script src="popupRelevamiento.js"></script>
+  <script src="popupPagina.js"></script>
 </body>
 </html>

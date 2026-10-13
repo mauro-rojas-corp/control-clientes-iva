@@ -1,10 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Ekuatia Login",
-  "version": "1.7",
-  "description": "Puente de acceso a Marangatu desde Control Clientes: login y carga del Formulario 120",
-  "permissions": ["scripting", "tabs", "storage"],
-  "host_permissions": ["https://marangatu.set.gov.py/*"],
+  "version": "2.0",
+  "description": "Puente de acceso a Marangatu desde Control Clientes: login, carga del Formulario 120 y descarga de formularios IVA",
+  "permissions": [
+    "scripting",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://marangatu.set.gov.py/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -17,6 +23,22 @@
     "128": "logo.png"
   },
   "externally_connectable": {
-    "matches": ["http://localhost/*"]
-  }
+    "matches": [
+      "http://localhost/*"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://marangatu.set.gov.py/*"
+      ],
+      "js": [
+        "descargaContent.js",
+        "paginas.js",
+        "relevamientoNav.js",
+        "panelContent.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
 }

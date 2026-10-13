@@ -11,7 +11,11 @@
 // Las credenciales nunca se guardan, ni se colocan en la URL, el historial
 // o el portapapeles.
 // seleccionarObligacionIva y mostrarReferenciaIva viven en formulario120.js.
-importScripts('formulario120.js');
+// La descarga de formularios IVA (APP_IVA_DESCARGAR, popup) vive en
+// descargaBg.js, que comparte el ámbito global de este archivo. La pestaña de
+// trabajo, el cierre de sesión y el estado compartido con la app viven en
+// sesionBg.js.
+importScripts('formulario120.js', 'sesionBg.js', 'descargaBg.js');
 
 const LOGIN_URL = 'https://marangatu.set.gov.py/eset/login';
 const MARANGATU_HOST = 'marangatu.set.gov.py';
@@ -37,32 +41,30 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
   const user = String(msg.user || '').trim();
   const pass = String(msg.pass || '');
 
-  if (msg.action === 'APP_AUTO_LOGIN') {
-    if (!user) {
-      sendResponse({ ok: false, error: 'sin usuario' });
+  if (msg.action === 'APP_AUTO_LOGIN' && !user) {
+    sendResponse({ ok: false, error: 'sin usuario' });
+    return true;
+  }
+  let pendiente = null;
+  if (msg.action === 'APP_IVA_PREPARE') {
+    pendiente = validarIva(msg);
+    if (!pendiente) {
+      sendResponse({ ok: false, error: 'datos del formulario inválidos' });
       return true;
     }
-    abrirLogin(user, pass);
-    sendResponse({ ok: true });
-    return true;
   }
 
-  // APP_IVA_PREPARE
-  const pendiente = validarIva(msg);
-  if (!pendiente) {
-    sendResponse({ ok: false, error: 'datos del formulario inválidos' });
-    return true;
-  }
-  chrome.storage.session.set({ [IVA_STORAGE_KEY]: pendiente }, () => {
-    if (chrome.runtime.lastError) {
-      sendResponse({ ok: false, error: 'no se pudieron guardar los datos' });
-      return;
+  // Una sola tarea a la vez: con una descarga en curso no se toca la sesión.
+  (async () => {
+    if (await leerJob()) { sendResponse({ ok: false, error: 'TAREA_EN_CURSO' }); return; }
+    if (pendiente) {
+      try { await chrome.storage.session.set({ [IVA_STORAGE_KEY]: pendiente }); } catch { sendResponse({ ok: false, error: 'no se pudieron guardar los datos' }); return; }
     }
-    // Después del login (automático o a mano) entra a "Presentar Declaración".
-    if (user) abrirLogin(user, pass, irAPresentarCuandoEntre);
-    else chrome.tabs.create({ url: LOGIN_URL }, (tab) => irAPresentarCuandoEntre(tab.id));
-    sendResponse({ ok: true });
-  });
+    // Después del login (automático o a mano) el Formulario 120 entra a
+    // "Presentar Declaración". Se reutiliza la pestaña de Marangatu que haya.
+    const r = await abrirLogin(user, pass, pendiente ? irAPresentarCuandoEntre : undefined);
+    sendResponse(r && r.ok ? { ok: true } : { ok: false, error: (r && r.error) || 'No se pudo abrir Marangatu.' });
+  })();
   return true;
 });
 
@@ -75,7 +77,11 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   try { url = new URL(tab.url || ''); } catch { return; }
   if (url.hostname !== MARANGATU_HOST || url.pathname.includes('/login')) return;
 
-  chrome.storage.session.get(IVA_STORAGE_KEY, (data) => {
+  chrome.storage.session.get([IVA_STORAGE_KEY, DESCARGA_KEY], (data) => {
+    // Las pestañas de una descarga en curso las maneja descargaBg.js: acá no
+    // se completa ni se marca nada en ellas.
+    const d = data && data[DESCARGA_KEY];
+    if (d && (d.tabLista === tabId || d.tabForm === tabId)) return;
     const p = data && data[IVA_STORAGE_KEY];
     if (!p || p.expiresAt < Date.now()) return;
     const ref = referenciaPeriodo(p);
@@ -188,32 +194,28 @@ function validarLista(lista, obligatoria) {
   return out;
 }
 
-// despues(tabId): opcional, se llama con la pestaña abierta (ej. para seguir
-// hasta "Presentar Declaración" una vez iniciada la sesión).
-function abrirLogin(user, pass, despues) {
-  chrome.tabs.create({ url: LOGIN_URL }, (tab) => {
-    const tabId = tab.id;
-    if (despues) despues(tabId);
-
-    const inject = (attempts) => {
-      chrome.scripting.executeScript(
-        { target: { tabId }, func: inyectarLogin, args: [user, pass] },
-        () => {
-          // Si la página todavía no está lista, reintenta unas veces.
-          if (chrome.runtime.lastError && attempts > 0) {
-            setTimeout(() => inject(attempts - 1), 400);
-          }
-        }
-      );
-    };
-
-    const onUpdated = (id, info) => {
-      if (id === tabId && info.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(onUpdated);
-        setTimeout(() => inject(3), 300);
+// Deja UNA pestaña de Marangatu en el acceso, sin sesión previa (sesionBg.js:
+// reutiliza la que exista y cierra la sesión que hubiera), y entra con las
+// credenciales si vienen. despues(tabId): opcional, se llama con la pestaña lista
+// (ej. para seguir hasta "Presentar Declaración" una vez iniciada la sesión).
+// Devuelve { ok, tabId } o { ok: false, error }.
+function abrirLogin(user, pass, despues, opciones) {
+  return conCandadoDeSesion(async () => {
+    const r = await prepararPestanaLogin(opciones);
+    if (!r.ok) { await publicarAviso(r.error); return r; }
+    const tabId = r.tabId;
+    if (r.aviso) await publicarAviso(r.aviso);
+    if (despues) await despues(tabId, r);
+    if (user && !r.sesionActiva) {
+      // El formulario puede dibujarse tarde: se reintenta unas veces.
+      for (let i = 0; i < 6; i += 1) {
+        let res = null;
+        try { res = await chrome.scripting.executeScript({ target: { tabId }, func: inyectarLogin, args: [user, pass] }); } catch { res = null; }
+        if (res && res[0] && res[0].result) break;
+        await dormir(400);
       }
-    };
-    chrome.tabs.onUpdated.addListener(onUpdated);
+    }
+    return { ok: true, tabId, sesionActiva: !!r.sesionActiva };
   });
 }
 
@@ -246,7 +248,7 @@ function inyectarLogin(user, pass) {
   const p = document.querySelector(
     "input[type='password'], input[name*='pass'], input[id*='pass']"
   );
-  if (!u || !p) return;
+  if (!u || !p) return false;
 
   u.value = user;
   u.dispatchEvent(new Event('input', { bubbles: true }));
@@ -257,4 +259,5 @@ function inyectarLogin(user, pass) {
     const btn = document.querySelector("button[type='submit'], input[type='submit']");
     if (btn) btn.click();
   }, 800);
+  return true;
 }

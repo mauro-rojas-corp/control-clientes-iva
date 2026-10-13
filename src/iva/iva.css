@@ -474,3 +474,20 @@
 .iva-conteo { margin: 0 0 8px; }
 .iva-ref { margin: 6px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--rx-amber-soft); font-size: var(--rx-fs-xs); }
 .iva-avisos { margin: 10px 0 0; padding-left: 18px; font-size: var(--rx-fs-2xs); color: var(--rx-muted); display: grid; gap: 4px; }
+
+/* Modal "Descargar formularios" */
+.iva-dl-ops { display: grid; gap: 8px; margin: 0 0 8px; }
+.iva-dl-ops .iva-chk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.iva-dl-ops select,
+.iva-dl-ops input[type="month"] {
+  padding: 6px 8px;
+  border: 1px solid var(--rx-line);
+  border-radius: 8px;
+  background: var(--rx-surface);
+  color: var(--rx-ink);
+  font: inherit;
+}
+.iva-prog { height: 8px; border-radius: 99px; background: var(--rx-line); overflow: hidden; margin: 8px 0 4px; }
+.iva-prog > div { height: 100%; background: var(--rx-brand); transition: width 0.3s; }
+.iva-ok { color: var(--rx-brand); font-weight: 600; margin: 0 0 8px; }
+@media (prefers-reduced-motion: reduce) { .iva-prog > div { transition: none; } }

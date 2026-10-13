@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
 import { api } from '../api';
-import { sendIvaToMarangatu } from '../marangatu';
+import { enviarContextoApp, mensajeDeError, sendIvaToMarangatu } from '../marangatu';
+import DescargaFormularios from './DescargaFormularios';
 import {
   ESTADOS,
   casillasFormulario120,
@@ -93,6 +94,7 @@ export default function IvaEditor({
   const [wa, setWa] = useState(cliente.wa || '');
   const [focusTarget, setFocusTarget] = useState(null);
   const [marangatuOpen, setMarangatuOpen] = useState(false);
+  const [descargaOpen, setDescargaOpen] = useState(false);
   const rootRef = useRef(null);
   const fichaRef = useRef(null);
 
@@ -180,6 +182,13 @@ export default function IvaEditor({
     const rows = d[k].filter((_, j) => j !== i);
     return { ...d, [k]: rows.length ? rows : [emptyRow()] };
   });
+
+  // Mientras este cliente está abierto, la extensión (y su panel en Marangatu)
+  // sabe que se trabaja con él; al salir se limpia.
+  useEffect(() => {
+    enviarContextoApp({ ruc: cliente.ruc, nombre: cliente.nombre });
+    return () => { enviarContextoApp(null); };
+  }, [cliente.ruc, cliente.nombre]);
 
   useEffect(() => {
     if (!focusTarget || !rootRef.current) return;
@@ -503,6 +512,9 @@ export default function IvaEditor({
             <button type="button" className="iva-btn" onClick={() => setMarangatuOpen(true)}>
               Copiar a Marangatu
             </button>
+            <button type="button" className="iva-btn" onClick={() => setDescargaOpen(true)}>
+              Descargar formularios
+            </button>
             <button
               type="button"
               className="iva-btn"
@@ -537,6 +549,7 @@ export default function IvaEditor({
       {marangatuOpen && (
         <MarangatuModal ctx={fichaCtx} draft={draft} onClose={() => setMarangatuOpen(false)} toast={toast} />
       )}
+      {descargaOpen && <DescargaFormularios ctx={fichaCtx} onClose={() => setDescargaOpen(false)} />}
     </div>
   );
 }
@@ -579,7 +592,7 @@ function MarangatuModal({ ctx, draft, onClose, toast }) {
     else if (resp.error === 'NO_EXTENSION') setStatus('no-extension');
     else {
       setStatus('idle');
-      toast('La extensión rechazó el envío: ' + resp.error);
+      toast(resp.error === 'TAREA_EN_CURSO' ? mensajeDeError(resp.error) : 'La extensión rechazó el envío: ' + resp.error);
     }
   };
 
