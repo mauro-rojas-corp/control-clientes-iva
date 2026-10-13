@@ -26,23 +26,38 @@ Puente exclusivo entre **Control Clientes** y Marangatu. Hace tres cosas:
 1. Abrí `chrome://extensions` (o `edge://extensions`).
 2. Activá **Modo de desarrollador**.
 3. Elegí **Cargar descomprimida** y seleccioná esta carpeta `Extension/`.
-4. Copiá el ID que aparece debajo del nombre de la extensión.
+4. Verificá que el ID debajo del nombre sea
+   **`dffknnjnidhfldehfalchalikfkjbehm`**.
 5. Fijá el ícono en la barra (pieza de rompecabezas → alfiler) para tener a
    mano **Completar formulario**.
 
 Después de modificar sus archivos, usá el botón **Recargar** de la extensión en
 esa misma pantalla.
 
+### ID fijo en todas las PCs
+
+Desde la 2.3, `manifest.json` lleva una clave pública (`"key"`). Con ella
+Chrome le da a la extensión descomprimida **el mismo ID en cualquier PC**
+(`dffknnjnidhfldehfalchalikfkjbehm`), en lugar de uno distinto según la
+carpeta. Así la app publicada usa un solo `VITE_MARANGATU_EXT_ID`.
+
+- Si una PC tenía cargada una versión anterior (con otro ID): **Quitar** la
+  extensión y volver a **Cargar descomprimida**. Un "Recargar" no cambia el ID.
+- No borres ni cambies `"key"` del manifest: el ID cambiaría y habría que
+  actualizar la variable en Vercel.
+- La clave **privada** que corresponde a esa clave pública no está en el
+  repositorio (ni debe estar). Sólo hace falta para empaquetar la extensión
+  como `.crx` o para publicarla conservando el mismo ID; para usarla
+  descomprimida no se necesita.
+
 ## Conectar con Control Clientes
 
-1. En el `.env` local de Control Clientes configurá
-   `VITE_MARANGATU_EXT_ID=<ID de la extensión>`.
-2. Reiniciá `npm run dev` o generá nuevamente la aplicación.
+1. En Vercel (Settings → Environment Variables) y en el `.env` local:
+   `VITE_MARANGATU_EXT_ID=dffknnjnidhfldehfalchalikfkjbehm`.
+2. Redeploy en Vercel (o reiniciá `npm run dev`): Vite incorpora el ID al
+   compilar.
 3. Usá el botón Marangatu desde una tarjeta de cliente, o **Copiar a
    Marangatu** desde su ficha IVA.
-
-El ID no debe escribirse directamente en el código fuente. En una extensión
-cargada de forma descomprimida puede variar entre computadoras.
 
 ## Reconocimiento de páginas y relevamiento de navegación
 
