@@ -491,3 +491,9 @@
 .iva-prog > div { height: 100%; background: var(--rx-brand); transition: width 0.3s; }
 .iva-ok { color: var(--rx-brand); font-weight: 600; margin: 0 0 8px; }
 @media (prefers-reduced-motion: reduce) { .iva-prog > div { transition: none; } }
+
+/* Botón de WhatsApp con selector de destino (Web / app de escritorio) */
+.iva-wa-grupo { display: inline-flex; align-items: stretch; }
+.iva-wa-grupo .iva-btn-wa { border-top-right-radius: 0; border-bottom-right-radius: 0; background: #1f8f4e; border-color: #1f8f4e; color: #fff; }
+.iva-wa-grupo .iva-btn-wa:hover { background: #18753f; }
+.iva-root .iva-wa-destino { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 0; padding: 6px 8px; font-size: var(--rx-fs-2xs); }

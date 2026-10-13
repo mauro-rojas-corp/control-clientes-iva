@@ -30,11 +30,27 @@ import {
   textOn,
   toNum,
   vencDe,
-  waLink,
+  waChatUrl,
+  waMensaje,
   waText,
 } from './ivaCore';
 
 const SAVE_DELAY_MS = 600;
+const WA_DESTINO_KEY = 'venc-iva-wa-destino';
+
+function readWaDestino() {
+  try {
+    return localStorage.getItem(WA_DESTINO_KEY) === 'app' ? 'app' : 'web';
+  } catch {
+    return 'web';
+  }
+}
+
+// Teléfono o tablet: el menú de compartir del sistema puede llevar la imagen
+// directo a WhatsApp. En la PC se usa el portapapeles.
+function esTactil() {
+  return typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+}
 const LIBRO_STORAGE_KEY = 'venc-iva-libro';
 
 function readLibroPreference() {
@@ -94,6 +110,7 @@ export default function IvaEditor({
   const [wa, setWa] = useState(cliente.wa || '');
   const [focusTarget, setFocusTarget] = useState(null);
   const [marangatuOpen, setMarangatuOpen] = useState(false);
+  const [waDestino, setWaDestino] = useState(readWaDestino);
   const [descargaOpen, setDescargaOpen] = useState(false);
   const rootRef = useRef(null);
   const fichaRef = useRef(null);
@@ -199,6 +216,54 @@ export default function IvaEditor({
 
   const markSent = () => {
     if (draftRef.current?.estado === 'pend') setField('estado', 'env');
+  };
+
+  // WhatsApp no deja adjuntar archivos por enlace. En el teléfono la imagen
+  // va por el menú de compartir del sistema; en la PC se copia al
+  // portapapeles y se abre el chat del cliente para pegarla (Ctrl+V).
+  // El portapapeles se escribe ANTES de abrir el chat: Chrome sólo lo permite
+  // mientras esta pestaña tiene el foco.
+  const enviarPorWhatsapp = async (fctx) => {
+    const blobPromise = fichaBlob(fichaRef.current);
+    const nombre = fileBase(fctx) + '.png';
+
+    if (esTactil() && navigator.canShare) {
+      try {
+        const file = new File([await blobPromise], nombre, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], text: waMensaje(fctx, draft) });
+          markSent();
+          return;
+        }
+      } catch (error) {
+        if (error?.name === 'AbortError') return; // la persona cerró el menú
+      }
+    }
+
+    let copiada = false;
+    try {
+      // Con la promesa adentro, el permiso del clic se conserva mientras se arma la imagen.
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
+      copiada = true;
+    } catch {
+      // Sin portapapeles de imágenes: se descarga para adjuntarla a mano.
+      try {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(await blobPromise);
+        a.download = nombre;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch { /* sin imagen: igual se abre el chat */ }
+    }
+
+    const url = waChatUrl(fctx, draft, waDestino);
+    if (waDestino === 'app') window.location.href = url;
+    else window.open(url, '_blank', 'noopener');
+    toast(copiada
+      ? 'Imagen copiada. En el chat de WhatsApp pegala con Ctrl+V y enviá.'
+      : 'Se descargó la imagen: adjuntala en el chat de WhatsApp.');
+    markSent();
   };
 
   const saveCliente = async (patch) => {
@@ -539,7 +604,24 @@ export default function IvaEditor({
               Copiar texto
             </button>
             {wa.trim() && (
-              <a className="iva-btn" target="_blank" rel="noopener noreferrer" href={waLink(fichaCtx, draft)} onClick={markSent}>Abrir WhatsApp</a>
+              <span className="iva-wa-grupo">
+                <button type="button" className="iva-btn iva-btn-wa" onClick={() => enviarPorWhatsapp(fichaCtx)}>
+                  Enviar por WhatsApp
+                </button>
+                <select
+                  className="iva-wa-destino"
+                  value={waDestino}
+                  onChange={(e) => {
+                    setWaDestino(e.target.value);
+                    try { localStorage.setItem(WA_DESTINO_KEY, e.target.value); } catch { /* preferencia opcional */ }
+                  }}
+                  aria-label="Abrir el chat en"
+                  title="Dónde se abre el chat"
+                >
+                  <option value="web">WhatsApp Web</option>
+                  <option value="app">App de escritorio</option>
+                </select>
+              </span>
             )}
           </div>
           <div className="hint">Así ve el cliente la ficha. El color del encabezado corresponde a su día de vencimiento.</div>

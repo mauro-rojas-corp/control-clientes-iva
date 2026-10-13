@@ -240,11 +240,35 @@ export function waText(ctx, l) {
   return out.join('\n');
 }
 
-export function waLink(ctx, l) {
-  let p = String(ctx.cliente.wa || '').replace(/\D/g, '');
+// Número en formato internacional para WhatsApp (Paraguay: 0981… -> 595981…).
+export function waTelefono(cliente) {
+  let p = String((cliente && cliente.wa) || '').replace(/\D/g, '');
   if (p.startsWith('0')) p = '595' + p.slice(1);
   else if (p.length === 9 && p.startsWith('9')) p = '595' + p;
-  return 'https://wa.me/' + p + '?text=' + encodeURIComponent(waText(ctx, l));
+  return p;
+}
+
+// Mensaje corto que acompaña la imagen de la ficha (el detalle va en la imagen).
+export function waMensaje(ctx, l) {
+  const m = fichaModel(ctx, l);
+  return 'Hola, te paso la liquidación de ' + m.per.replace('IVA - ', 'IVA de ') + '. ' +
+    m.resLabel + ': Gs. ' + gs(m.resVal) + '. Vence el ' + m.venc + '.\n' + firma(ctx.config);
+}
+
+// Chat del cliente con el mensaje escrito. WhatsApp no permite adjuntar
+// archivos por enlace: la imagen se pega en el chat (o se comparte en el
+// teléfono). destino: 'web' (WhatsApp Web), 'app' (WhatsApp de escritorio)
+// o 'wa' (wa.me, decide el sistema).
+export function waChatUrl(ctx, l, destino = 'web', texto = waMensaje(ctx, l)) {
+  const tel = waTelefono(ctx.cliente);
+  const q = 'phone=' + tel + '&text=' + encodeURIComponent(texto);
+  if (destino === 'app') return 'whatsapp://send?' + q;
+  if (destino === 'wa') return 'https://wa.me/' + tel + '?text=' + encodeURIComponent(texto);
+  return 'https://web.whatsapp.com/send?' + q;
+}
+
+export function waLink(ctx, l) {
+  return waChatUrl(ctx, l, 'wa', waText(ctx, l));
 }
 
 // Casillas del Formulario 120 (v4) tal como lo arma Marangatu (relevado del
