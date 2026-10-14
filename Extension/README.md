@@ -200,21 +200,17 @@ debe agregarse un comodín de dominios ni un puerto ficticio.
   y, desde la 2.2, a `https://web.whatsapp.com/*` (sólo para pegar la ficha;
   ver abajo).
 
-## Envío de la ficha por WhatsApp Web (v2.2; una sola pestaña desde la 2.5)
+## Envío de la ficha por WhatsApp Web (v2.2; restaurado en la 2.6)
 
 Desde la ficha IVA, **Enviar por WhatsApp** (con "WhatsApp Web" elegido)
 manda a la extensión el número del cliente, un mensaje corto y la imagen de
 la ficha (`APP_WA_ENVIAR`, sólo desde los orígenes autorizados). La
 extensión (`whatsappBg.js`):
 
-1. Usa **la pestaña de WhatsApp Web que ya esté abierta** (la de la ventana
-   activa si hay varias) y la lleva al chat de ese número con el mensaje
-   escrito. Sólo si no hay ninguna abierta crea una. Nunca abre una segunda
-   pestaña, y la app tampoco abre una por su cuenta cuando la extensión está
-   instalada: si algo falla, lo avisa. Al cambiar de chat la pestaña recarga:
-   WhatsApp no ofrece otra forma confiable de abrir el chat de un número
-   cualquiera (la 2.4 probó un enlace interno, pero WhatsApp lo abría en otra
-   pestaña y ahí no se pegaba la imagen).
+1. Abre WhatsApp Web en el chat de ese número con el mensaje escrito, o
+   reutiliza la pestaña de WhatsApp Web si ya hay una abierta (la pestaña
+   recarga al cambiar de chat). La 2.4 y la 2.5 cambiaron este paso y se
+   volvió a la versión de la 2.3, que es la probada.
 2. Cuando carga, inyecta **en esa pestaña** una función que espera el cuadro
    de mensaje (hasta 2 minutos, por si hay que escanear el QR) y pega la
    imagen como un Ctrl+V. Muestra un aviso arriba de la página.

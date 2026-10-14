@@ -290,7 +290,15 @@ export default function IvaEditor({
         return;
       }
       // Sin extensión: no hay forma de pegar la imagen sola; sigue con el
-      // chat común y el portapapeles.
+      // chat común y el portapapeles, y se avisa para no confundirlo con un
+      // fallo de la extensión.
+      const url = waChatUrl(fctx, draft, 'web');
+      window.open(url, '_blank', 'noopener');
+      toast(copiada
+        ? 'No se detectó la extensión Ekuatia: se abrió WhatsApp Web aparte. Pegá la imagen con Ctrl+V.'
+        : 'No se detectó la extensión Ekuatia: se descargó la imagen para adjuntarla a mano.');
+      markSent();
+      return;
     }
 
     const url = waChatUrl(fctx, draft, waDestino);
