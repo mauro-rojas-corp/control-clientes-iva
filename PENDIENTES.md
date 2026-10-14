@@ -227,12 +227,12 @@ quedó fuera de la aplicación aunque su CSS siga en `styles.css`.
 - [ ] Si WhatsApp Web no acepta el pegado simulado, revisar los selectores
   del cuadro de mensaje en `Extension/whatsappBg.js` (mientras tanto, Ctrl+V).
 
-## WhatsApp Web sin recarga (extensión v2.4)
+## WhatsApp Web: una sola pestaña, texto e imagen (extensión v2.5)
 
-- [ ] Recargar la extensión y, con WhatsApp Web ya abierto y vinculado,
-  enviar dos fichas seguidas a clientes distintos: la pestaña no debe
-  recargarse, cada chat debe abrirse con su texto y su imagen.
-- [ ] Enviar a un cliente cuyo chat ya está abierto: se espera una recarga
-  (es el camino seguro) y luego la imagen pegada.
-- [ ] Si siempre recarga, WhatsApp dejó de interceptar el enlace interno:
-  revisar `operarWhatsapp` en `Extension/whatsappBg.js`.
+- [ ] Recargar la extensión (`chrome://extensions` → Recargar, debe decir 2.5)
+  y cerrar las pestañas de WhatsApp Web que hayan quedado de más.
+- [ ] Con una sola pestaña de WhatsApp Web abierta, enviar dos fichas
+  seguidas: no debe abrirse otra pestaña, y en cada chat deben quedar el
+  texto y la imagen listos para tocar Enviar.
+- [ ] Si la imagen no aparece, revisar los selectores del cuadro de mensaje
+  en `pegarImagenWhatsapp` (`Extension/whatsappBg.js`).

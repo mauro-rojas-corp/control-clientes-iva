@@ -258,8 +258,11 @@ export default function IvaEditor({
       } catch { /* sin imagen: igual se abre el chat */ }
     }
 
-    // Con la extensión y WhatsApp Web, la imagen se pega sola en el chat.
+    // Con la extensión y WhatsApp Web, la imagen se pega sola en el chat, en
+    // la pestaña de WhatsApp Web que ya esté abierta. Si la extensión está
+    // instalada, la app NUNCA abre otra pestaña: si algo falla, lo avisa.
     if (waDestino === 'web') {
+      let resp = { ok: false, error: 'NO_EXTENSION' };
       try {
         const blob = await blobPromise;
         const imagen = await new Promise((resolve, reject) => {
@@ -268,18 +271,26 @@ export default function IvaEditor({
           lector.onerror = reject;
           lector.readAsDataURL(blob);
         });
-        const resp = await enviarWhatsappExtension({
+        resp = await enviarWhatsappExtension({
           telefono: waTelefono(fctx.cliente),
           texto: waMensaje(fctx, draft),
           imagen,
           nombre,
         });
-        if (resp.ok) {
-          toast('Se abrió WhatsApp Web: la imagen se pega sola. Revisá y tocá Enviar.');
-          markSent();
-          return;
-        }
-      } catch { /* sigue con el chat común */ }
+      } catch {
+        resp = { ok: false, error: 'WA_IMAGEN' };
+      }
+      if (resp.ok) {
+        toast('WhatsApp Web: se abre el chat con el texto y la imagen. Revisá y tocá Enviar.');
+        markSent();
+        return;
+      }
+      if (resp.error !== 'NO_EXTENSION') {
+        toast(mensajeDeError(resp.error));
+        return;
+      }
+      // Sin extensión: no hay forma de pegar la imagen sola; sigue con el
+      // chat común y el portapapeles.
     }
 
     const url = waChatUrl(fctx, draft, waDestino);

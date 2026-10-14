@@ -80,6 +80,9 @@ export function sendIvaToMarangatu({ ruc, nombre, periodo, casillas, control = [
 export function mensajeDeError(error) {
   if (error === 'TAREA_EN_CURSO') return 'Hay una tarea en curso en Marangatu. Cancelala o esperá a que termine.';
   if (error === 'DESCARGA_EN_CURSO') return 'Ya hay una descarga en curso.';
+  if (error === 'WA_TELEFONO') return 'El número de WhatsApp del cliente no es válido. Revisalo en la ficha.';
+  if (error === 'WA_IMAGEN' || error === 'WA_IMAGEN_GRANDE') return 'No se pudo preparar la imagen de la ficha para WhatsApp.';
+  if (error === 'WA_ORIGEN') return 'La extensión no reconoce esta dirección de la app. Actualizala (Recargar en chrome://extensions).';
   return error || 'La extensión no pudo completar el pedido.';
 }
 
