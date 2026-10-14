@@ -226,3 +226,13 @@ quedó fuera de la aplicación aunque su CSS siga en `styles.css`.
   chat del número y la imagen aparezca sola en la vista previa.
 - [ ] Si WhatsApp Web no acepta el pegado simulado, revisar los selectores
   del cuadro de mensaje en `Extension/whatsappBg.js` (mientras tanto, Ctrl+V).
+
+## WhatsApp Web sin recarga (extensión v2.4)
+
+- [ ] Recargar la extensión y, con WhatsApp Web ya abierto y vinculado,
+  enviar dos fichas seguidas a clientes distintos: la pestaña no debe
+  recargarse, cada chat debe abrirse con su texto y su imagen.
+- [ ] Enviar a un cliente cuyo chat ya está abierto: se espera una recarga
+  (es el camino seguro) y luego la imagen pegada.
+- [ ] Si siempre recarga, WhatsApp dejó de interceptar el enlace interno:
+  revisar `operarWhatsapp` en `Extension/whatsappBg.js`.
