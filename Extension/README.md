@@ -200,20 +200,24 @@ debe agregarse un comodín de dominios ni un puerto ficticio.
   y, desde la 2.2, a `https://web.whatsapp.com/*` (sólo para pegar la ficha;
   ver abajo).
 
-## Envío de la ficha por WhatsApp Web (v2.2; restaurado en la 2.6)
+## Envío de la ficha por WhatsApp Web (v2.2; una pestaña y sin recarga desde la 2.7)
 
 Desde la ficha IVA, **Enviar por WhatsApp** (con "WhatsApp Web" elegido)
 manda a la extensión el número del cliente, un mensaje corto y la imagen de
 la ficha (`APP_WA_ENVIAR`, sólo desde los orígenes autorizados). La
 extensión (`whatsappBg.js`):
 
-1. Abre WhatsApp Web en el chat de ese número con el mensaje escrito, o
-   reutiliza la pestaña de WhatsApp Web si ya hay una abierta (la pestaña
-   recarga al cambiar de chat). La 2.4 y la 2.5 cambiaron este paso y se
-   volvió a la versión de la 2.3, que es la probada.
-2. Cuando carga, inyecta **en esa pestaña** una función que espera el cuadro
-   de mensaje (hasta 2 minutos, por si hay que escanear el QR) y pega la
-   imagen como un Ctrl+V. Muestra un aviso arriba de la página.
+1. **Si ya hay una pestaña de WhatsApp Web abierta, usa esa y no la recarga:**
+   abre el chat del número con las funciones internas de WhatsApp Web
+   (`WAWebCmd.openChatBottom`, `WAWebFindChatAction`, `WAWebWidFactory`,
+   `WAWebQueryExistsJob`), pega el texto y pega la imagen. Queda la vista
+   previa con la imagen y el texto como pie. **Si no hay ninguna**, abre una
+   sola y hace lo mismo cuando WhatsApp termina de cargar. Si WhatsApp
+   cambiara esas funciones internas, usa el método anterior (lleva esa misma
+   pestaña a `/send?phone=…`), nunca una pestaña nueva. Se inyecta en el
+   mundo de la página (`world: 'MAIN'`) porque esas funciones no se ven desde
+   el mundo aislado de la extensión.
+2. Muestra un aviso arriba de la página con el resultado.
 3. **Nunca envía:** la persona revisa la vista previa y toca Enviar. Enviar
    mensajes automáticamente va contra las condiciones de uso de WhatsApp.
 

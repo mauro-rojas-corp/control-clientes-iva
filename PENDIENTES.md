@@ -227,13 +227,15 @@ quedó fuera de la aplicación aunque su CSS siga en `styles.css`.
 - [ ] Si WhatsApp Web no acepta el pegado simulado, revisar los selectores
   del cuadro de mensaje en `Extension/whatsappBg.js` (mientras tanto, Ctrl+V).
 
-## WhatsApp Web: una sola pestaña, texto e imagen (extensión v2.6)
+## WhatsApp Web: una sola pestaña, sin recarga, texto e imagen (extensión v2.7)
+
+Probado el 14/10/2026 contra WhatsApp Web real (chat propio, sin enviar):
+abre el chat sin recargar, pega texto e imagen y queda la vista previa.
 
 - [ ] `git pull` en la carpeta desde la que se cargó la extensión,
-  `chrome://extensions` → Recargar y confirmar que diga **2.6**.
-- [ ] Confirmar que la app publicada en Vercel tiene el último deploy.
-- [ ] Con una sola pestaña de WhatsApp Web abierta, enviar una ficha. Si la
-  app avisa «No se detectó la extensión Ekuatia», la app no está hablando con
-  la extensión (ID en `VITE_MARANGATU_EXT_ID`, origen en
-  `ALLOWED_APP_ORIGINS` o extensión sin recargar): ésa es la causa de que se
-  abra otra pestaña sin imagen.
+  `chrome://extensions` → Recargar y confirmar que diga **2.7**.
+- [ ] Con WhatsApp Web abierto, enviar dos fichas seguidas a clientes
+  distintos: misma pestaña, sin recarga, imagen + texto en la vista previa.
+- [ ] Con WhatsApp Web cerrado: debe abrirse una sola pestaña y completar.
+- [ ] Si alguna vez vuelve a recargar la pestaña, WhatsApp cambió sus
+  funciones internas: revisar los nombres de módulo en `operarWhatsapp`.
